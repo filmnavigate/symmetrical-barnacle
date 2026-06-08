@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Money Tracker</title>
+<style>
+:root {
+  --bg: #f0f2f5; --surface: #fff; --border: #e5e7eb;
+  --text: #111827; --text2: #374151; --text3: #6b7280; --text4: #9ca3af;
+  --accent: #4f46e5; --accent-bg: #eef2ff; --accent-light: #a5b4fc;
+  --header-from: #1e1b4b; --header-to: #312e81;
+  --th-bg: #f8fafc; --hover-bg: #fafafa; --row-border: #f3f4f6;
+  --note-bg: #fffbeb; --note-border: #fde68a; --note-text: #92400e;
+  --tabs-bg: #e5e7eb; --shadow: rgba(0,0,0,0.08);
+}
+[data-theme="dark"] {
+  --bg: #0f172a; --surface: #1e293b; --border: #334155;
+  --text: #f1f5f9; --text2: #cbd5e1; --text3: #94a3b8; --text4: #64748b;
+  --accent: #818cf8; --accent-bg: #1e1b4b; --accent-light: #4f46e5;
+  --header-from: #0f0e2e; --header-to: #1e1b4b;
+  --th-bg: #1e293b; --hover-bg: #263348; --row-border: #1e293b;
+  --note-bg: #1c1a0a; --note-border: #78610a; --note-text: #fde68a;
+  --tabs-bg: #1e293b; --shadow: rgba(0,0,0,0.3);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); transition: background 0.2s, color 0.2s; }
+
+/* HEADER */
+header {
+  background: linear-gradient(135deg, var(--header-from) 0%, var(--header-to) 100%);
+  color: #fff; padding: 14px 20px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+header h1 { font-size: 1.05rem; font-weight: 700; }
+header .sub { font-size: 0.7rem; opacity: 0.6; margin-top: 2px; }
+.updated { margin-left: auto; font-size: 0.7rem; opacity: 0.55; }
+.header-controls { display: flex; gap: 8px; align-items: center; }
+.ctrl-btn {
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
+  color: #fff; padding: 5px 11px; border-radius: 6px; font-size: 0.75rem;
+  cursor: pointer; font-weight: 600; transition: background 0.15s; white-space: nowrap;
+}
+.ctrl-btn:hover { background: rgba(255,255,255,0.28); }
+
+/* TABS */
+.tabs { display: flex; gap: 1px; background: var(--tabs-bg); border-bottom: 1px solid var(--border); }
+.tab-btn {
+  background: var(--surface); border: none; padding: 10px 18px;
+  font-size: 0.82rem; font-weight: 600; cursor: pointer; color: var(--text3);
+  transition: all 0.15s; border-bottom: 3px solid transparent;
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn:hover:not(.active) { background: var(--hover-bg); color: var(--text2); }
+.panel { display: none; padding: 16px; }
+.panel.active { display: block; }
+
+/* INVESTOR GRID */
+.investor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.inv-card { background: var(--surface); border: 2px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: all 0.15s; text-align: center; }
+.inv-card:hover { border-color: var(--accent-light); box-shadow: 0 2px 8px var(--shadow); }
+.inv-card.active { border-color: var(--accent); background: var(--accent-bg); }
+.inv-card .inv-name { font-weight: 700; font-size: 0.82rem; color: var(--text); }
+.inv-card .inv-fund { font-size: 0.68rem; color: var(--text4); margin-top: 2px; }
+.inv-card .inv-period { font-size: 0.66rem; color: var(--text3); margin-top: 4px; }
+
+/* INFO BAR */
+.info-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; align-items: center; }
+.info-bar .pill { font-size: 0.78rem; color: var(--text2); }
+.info-bar .pill strong { color: var(--accent); }
+.info-bar a { margin-left: auto; font-size: 0.75rem; color: var(--accent); text-decoration: none; font-weight: 600; }
+.info-bar a:hover { text-decoration: underline; }
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text4); font-size: 0.85rem; background: var(--surface); border-radius: 10px; border: 2px dashed var(--border); }
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+/* TABLE */
+.tbl-wrap { max-height: 60vh; overflow-y: auto; border-radius: 10px; box-shadow: 0 1px 3px var(--shadow); }
+.tbl-wrap::-webkit-scrollbar { width: 5px; }
+.tbl-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); font-size: 0.81rem; }
+thead { position: sticky; top: 0; z-index: 1; }
+th { background: var(--th-bg); padding: 9px 12px; text-align: left; font-weight: 600; color: var(--text2); border-bottom: 2px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+th:hover { filter: brightness(0.97); }
+th.sorted { color: var(--accent); }
+td { padding: 8px 12px; border-bottom: 1px solid var(--row-border); color: var(--text); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--hover-bg); }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.78rem; }
+.badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.3px; }
+.badge-put { background: #fee2e2; color: #b91c1c; }
+.badge-call { background: #dcfce7; color: #15803d; }
+.badge-sh { background: #eff6ff; color: #1d4ed8; }
+.badge-other { background: #f3f4f6; color: #374151; }
+[data-theme="dark"] .badge-sh { background: #1e3a5f; color: #93c5fd; }
+[data-theme="dark"] .badge-other { background: #334155; color: #cbd5e1; }
+.search-row { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+.search-row input { padding: 7px 11px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.82rem; outline: none; flex: 1; min-width: 160px; background: var(--surface); color: var(--text); }
+.search-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,70,229,0.15); }
+.count-label { font-size: 0.75rem; color: var(--text4); }
+
+/* CONGRESS */
+.congress-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.congress-link-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-decoration: none; color: inherit; transition: all 0.15s; display: block; }
+.congress-link-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px var(--shadow); }
+.congress-link-card .card-title { font-weight: 700; font-size: 0.88rem; color: var(--text); margin-bottom: 4px; }
+.congress-link-card .card-desc { font-size: 0.75rem; color: var(--text3); line-height: 1.4; }
+.congress-link-card .card-arrow { float: right; color: var(--accent); font-size: 1rem; }
+.notable-trades { margin-bottom: 20px; }
+.notable-trades h3 { font-size: 0.85rem; font-weight: 700; color: var(--text2); margin-bottom: 10px; }
+table.cong-tbl { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px var(--shadow); font-size: 0.8rem; }
+table.cong-tbl th { background: var(--th-bg); padding: 9px 12px; font-weight: 600; color: var(--text2); border-bottom: 2px solid var(--border); text-align: left; }
+table.cong-tbl td { padding: 8px 12px; border-bottom: 1px solid var(--row-border); color: var(--text); }
+table.cong-tbl tr:last-child td { border-bottom: none; }
+table.cong-tbl tr:hover td { background: var(--hover-bg); }
+.ticker { display: inline-block; background: #eff6ff; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: monospace; font-size: 0.75rem; }
+[data-theme="dark"] .ticker { background: #1e3a5f; color: #93c5fd; }
+.badge-buy { background: #dcfce7; color: #15803d; padding: 2px 7px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
+.badge-sell { background: #fee2e2; color: #b91c1c; padding: 2px 7px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
+.note-box { background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 8px; padding: 10px 14px; font-size: 0.78rem; color: var(--note-text); margin-bottom: 14px; }
+
+/* PERFORMANCE TAB */
+.perf-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.refresh-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--accent); color: #fff; border: none; border-radius: 8px;
+  padding: 7px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.refresh-btn:hover { opacity: 0.88; }
+.refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.refresh-btn .spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.last-updated { font-size: 0.73rem; color: var(--text4); }
+.perf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.perf-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; transition: box-shadow 0.15s; }
+.perf-card:hover { box-shadow: 0 2px 12px var(--shadow); }
+.perf-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.perf-ticker { font-size: 1.05rem; font-weight: 800; color: var(--text); }
+.perf-name { font-size: 0.72rem; font-weight: 500; color: var(--text3); }
+.perf-change { font-size: 0.92rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; white-space: nowrap; }
+.perf-up { background: #dcfce7; color: #15803d; }
+.perf-down { background: #fee2e2; color: #b91c1c; }
+[data-theme="dark"] .perf-up { background: #14532d; color: #86efac; }
+[data-theme="dark"] .perf-down { background: #7f1d1d; color: #fca5a5; }
+.perf-prices { display: flex; gap: 20px; margin-bottom: 10px; }
+.perf-price-box { flex: 1; }
+.perf-price-label { font-size: 0.66rem; color: var(--text4); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.perf-price-val { font-size: 1rem; font-weight: 700; font-family: 'SF Mono', monospace; }
+.perf-bar-wrap { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+.perf-bar-fill { height: 100%; border-radius: 3px; }
+.perf-investors { display: flex; flex-wrap: wrap; gap: 4px; }
+.perf-inv-pill { font-size: 0.67rem; padding: 2px 8px; border-radius: 12px; font-weight: 600; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-light); }
+.perf-inv-pill.put { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+[data-theme="dark"] .perf-inv-pill.put { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+.perf-note { font-size: 0.71rem; color: var(--text4); margin-top: 7px; font-style: italic; }
+.perf-section-title { font-size: 0.78rem; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
+
+/* HELP MODAL */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border-radius: 14px; max-width: 620px; width: 100%; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.22); }
+.modal-header { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 1rem; font-weight: 700; color: var(--text); }
+.modal-close { background: none; border: none; font-size: 1.3rem; color: var(--text3); cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.modal-close:hover { background: var(--border); }
+.modal-body { padding: 18px 20px; }
+.help-section { margin-bottom: 20px; }
+.help-section h3 { font-size: 0.88rem; font-weight: 700; color: var(--accent); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.help-section p, .help-section li { font-size: 0.82rem; color: var(--text2); line-height: 1.6; margin-bottom: 4px; }
+.help-section ul { padding-left: 18px; }
+.help-kbd { display: inline-block; background: var(--th-bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 7px; font-size: 0.74rem; font-weight: 700; color: var(--text); font-family: monospace; }
+.help-divider { height: 1px; background: var(--border); margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div><div style="font-size:1.4rem;margin-bottom:2px">🐋</div></div>
+  <div>
+    <h1>Smart Money Tracker</h1>
+    <div class="sub">SEC 13F Holdings · Congress Disclosures · Real Data</div>
+  </div>
+  <div class="updated" id="updated-label">Ενημέρωση: Ιούνιος 2026</div>
+  <div class="header-controls">
+    <button class="ctrl-btn" onclick="openHelp()">❓ <span data-i18n="helpBtn">Οδηγίες</span></button>
+    <button class="ctrl-btn" id="lang-btn" onclick="toggleLang()">EN</button>
+    <button class="ctrl-btn" id="theme-btn" onclick="toggleTheme()">🌙</button>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="f13">📊 <span data-i18n="tab13f">Hedge Funds (13F)</span></button>
+  <button class="tab-btn" data-tab="congress">🏛 <span data-i18n="tabCongress">Congress Trades</span></button>
+  <button class="tab-btn" data-tab="performance">📈 <span data-i18n="tabPerf">Κοινές Θέσεις</span></button>
+  <button class="tab-btn" data-tab="realtime">🔔 <span data-i18n="tabRT">Real-Time Insider</span></button>
+  <button class="tab-btn" data-tab="score">🎯 <span data-i18n="tabScore">Smart Score</span></button>
+</div>
+
+<!-- ══ 13F PANEL ══ -->
+<div id="tab-f13" class="panel active">
+  <div class="investor-grid" id="inv-grid"></div>
+  <div id="empty-state" class="empty-state">
+    <div class="icon">👆</div>
+    <div data-i18n="emptyTitle">Επέλεξε έναν επενδυτή για να δεις τις θέσεις του</div>
+    <div style="margin-top:6px;font-size:0.75rem" data-i18n="emptySub">Δεδομένα απευθείας από SEC EDGAR</div>
+  </div>
+  <div id="holdings-view" style="display:none">
+    <div class="info-bar" id="info-bar"></div>
+    <div class="search-row">
+      <input type="text" id="search-input" data-i18n-placeholder="searchPlaceholder">
+      <span class="count-label" id="count-label"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th data-col="rank">#</th>
+          <th data-col="name" data-i18n="colCompany">Εταιρεία</th>
+          <th data-col="class" data-i18n="colType">Τύπος</th>
+          <th data-col="value" class="num sorted" data-i18n="colValue">Αξία ($000) ▼</th>
+          <th data-col="shares" class="num" data-i18n="colShares">Μετοχές</th>
+          <th data-col="pct" class="num">% Port.</th>
+          <th data-col="pos" data-i18n="colPos">Θέση</th>
+        </tr></thead>
+        <tbody id="holdings-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PERFORMANCE PANEL ══ -->
+<div id="tab-performance" class="panel">
+  <div class="note-box" data-i18n="perfNote">
+    📌 Μετοχές που κατέχουν 2+ επενδυτές ταυτόχρονα. Τιμές Q1 = κλείσιμο 31/3/2026 (υπολογισμένες από 13F value÷shares).
+  </div>
+  <div class="perf-toolbar">
+    <button class="refresh-btn" id="refresh-btn" onclick="fetchLivePrices()">
+      <span id="refresh-icon">🔄</span> <span data-i18n="refreshBtn">Ανανέωση τιμών</span>
+    </button>
+    <span class="last-updated" id="last-updated-label"></span>
+  </div>
+  <p class="perf-section-title" data-i18n="perfConsensus">Consensus — 4 επενδυτές</p>
+  <div class="perf-grid" id="perf-grid-4"></div>
+  <p class="perf-section-title" data-i18n="perfOverlap">Overlap — 2 επενδυτές</p>
+  <div class="perf-grid" id="perf-grid-2"></div>
+</div>
+
+<!-- ══ REAL-TIME INSIDER PANEL ══ -->
+<div id="tab-realtime" class="panel">
+
+  <div class="note-box" data-i18n="rtNote">
+    🔔 Συναλλαγές Superinvestors ως insiders (Form 4) — τελευταίοι 6 μήνες. Πηγή: <a href="https://dataroma.com/m/rt.php" target="_blank" style="color:var(--accent);font-weight:600">Dataroma ↗</a>. Τελευταία ανάκτηση: 8/6/2026.
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:18px" id="rt-summary"></div>
+
+  <!-- FILTER ROW -->
+  <div class="search-row" style="margin-bottom:12px">
+    <input type="text" id="rt-search" data-i18n-placeholder="rtSearch" placeholder="🔍 Αναζήτηση fund / μετοχή...">
+    <select id="rt-filter-action" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:0.82rem;background:var(--surface);color:var(--text);outline:none">
+      <option value="all" data-i18n="rtAll">Όλες</option>
+      <option value="Buy" data-i18n="rtBuy">Αγορές</option>
+      <option value="Sell" data-i18n="rtSell">Πωλήσεις</option>
+    </select>
+    <span class="count-label" id="rt-count"></span>
+  </div>
+
+  <!-- TABLE -->
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th data-i18n="colDate" id="rt-th-date" style="cursor:pointer">Ημ/νία ▼</th>
+        <th data-i18n="rtFund">Fund / Investor</th>
+        <th data-i18n="colCompany">Μετοχή</th>
+        <th data-i18n="colMove">Κίνηση</th>
+        <th class="num" data-i18n="colShares">Μετοχές</th>
+        <th class="num" data-i18n="rtPrice">Τιμή</th>
+        <th class="num" data-i18n="rtTotal">Σύνολο</th>
+        <th data-i18n="rtFiling">Αρχειοθέτηση</th>
+      </tr></thead>
+      <tbody id="rt-body"></tbody>
+    </table>
+  </div>
+
+  <p style="font-size:0.71rem;color:var(--text4);margin-top:10px" data-i18n="rtFooter">* A = Amendment filing. Δεδομένα από SEC Form 4 μέσω Dataroma.com.</p>
+</div>
+
+<!-- ══ SMART MONEY SCORE PANEL ══ -->
+<div id="tab-score" class="panel">
+
+  <div class="note-box" id="score-note-box">
+    🎯 <span data-i18n="scoreNote">Συνδυαστικό score βάσει 13F holdings, Insider (Form 4) και Congress trades. Ανανεώνεται αυτόματα από τα δεδομένα των άλλων tabs.</span>
+  </div>
+
+  <!-- LEGEND -->
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:0.78rem;color:var(--text3)">
+    <span>🔥 ≥60 <span data-i18n="scoreLegStrong">Ισχυρή επιβεβαίωση</span></span>
+    <span>✅ 40–59 <span data-i18n="scoreLegMod">Μέτρια</span></span>
+    <span>⚠️ 20–39 <span data-i18n="scoreLegWeak">Αδύναμη</span></span>
+    <span>🔵 &lt;20 <span data-i18n="scoreLegLow">Χαμηλή</span></span>
+    <span style="margin-left:8px">🟢 <span data-i18n="scoreLegBuySignal">Αγορά signal</span></span>
+    <span>🔴 <span data-i18n="scoreLegSellSignal">Πώληση signal</span></span>
+  </div>
+
+  <!-- FORMULA -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:14px;font-size:0.76rem;color:var(--text3);display:flex;gap:20px;flex-wrap:wrap">
+    <span>📊 13F Investors <strong style="color:var(--accent)">35%</strong></span>
+    <span>💰 13F Value <strong style="color:var(--accent)">35%</strong></span>
+    <span>🔔 Insider RT <strong style="color:var(--accent)">15%</strong></span>
+    <span>🏛 Congress <strong style="color:var(--accent)">10%</strong></span>
+    <span>📌 Concentration <strong style="color:var(--accent)">5%</strong></span>
+  </div>
+
+  <!-- FILTER -->
+  <div class="search-row" style="margin-bottom:14px">
+    <input type="text" id="score-search" data-i18n-placeholder="searchPlaceholder" placeholder="🔍 Αναζήτηση...">
+    <select id="score-filter" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:0.82rem;background:var(--surface);color:var(--text);outline:none">
+      <option value="all" data-i18n="rtAll">Όλες</option>
+      <option value="signal" data-i18n="scoreHasSignal">Με signal</option>
+      <option value="congress" data-i18n="scoreHasCongress">Congress signal</option>
+    </select>
+    <span class="count-label" id="score-count"></span>
+  </div>
+
+  <div id="score-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px"></div>
+</div>
+
+<!-- ══ CONGRESS PANEL ══ -->
+<div id="tab-congress" class="panel">
+  <div class="note-box" data-i18n="congressNote">
+    ⚡ Τα δεδομένα Congress trades ανανεώνονται σε πραγματικό χρόνο στις παρακάτω πλατφόρμες.
+  </div>
+  <div class="congress-links">
+    <a class="congress-link-card" href="https://www.capitoltrades.com" target="_blank">
+      <span class="card-arrow">↗</span>
+      <div class="card-title">Capitol Trades</div>
+      <div class="card-desc" data-i18n="ct-desc">Η καλύτερη πλατφόρμα. Αναζήτηση ανά politician, ticker, ημερομηνία.</div>
+    </a>
+    <a class="congress-link-card" href="https://www.quiverquant.com/congresstrading/" target="_blank">
+      <span class="card-arrow">↗</span>
+      <div class="card-title">Quiver Quant Congress</div>
+      <div class="card-desc" data-i18n="qq-desc">Live Congress trades, House & Senate.</div>
+    </a>
+    <a class="congress-link-card" href="https://senatestockwatcher.com" target="_blank">
+      <span class="card-arrow">↗</span>
+      <div class="card-title">Senate Stock Watcher</div>
+      <div class="card-desc" data-i18n="ssw-desc">Αποκλειστικά Γερουσία. Δωρεάν, ιστορικά από 2012.</div>
+    </a>
+    <a class="congress-link-card" href="https://disclosures-clerk.house.gov/FinancialDisclosure" target="_blank">
+      <span class="card-arrow">↗</span>
+      <div class="card-title">House Disclosures (Official)</div>
+      <div class="card-desc" data-i18n="hd-desc">Η επίσημη πηγή. Πλήρη PTR σε PDF.</div>
+    </a>
+    <a class="congress-link-card" href="https://openinsider.com" target="_blank">
+      <span class="card-arrow">↗</span>
+      <div class="card-title">Open Insider (Form 4)</div>
+      <div class="card-desc" data-i18n="oi-desc">Insider trades από στελέχη εταιρειών, real-time.</div>
+    </a>
+    <a class="congress-link-card" href="https://unusualwhales.com/politics" target="_blank">
+      <span class="card-arrow">↗</span>
+      <div class="card-title">Unusual Whales Politics</div>
+      <div class="card-desc" data-i18n="uw-desc">Ranking πολιτικών, options trades, τελευταίες κινήσεις.</div>
+    </a>
+  </div>
+  <div class="notable-trades">
+    <h3>📌 <span data-i18n="notableTitle">Γνωστές Πρόσφατες Κινήσεις (2025-2026)</span></h3>
+    <table class="cong-tbl">
+      <thead><tr>
+        <th data-i18n="colDate">Ημερομηνία</th><th data-i18n="colMember">Μέλος</th>
+        <th>Ticker</th><th data-i18n="colCompany">Εταιρεία</th>
+        <th data-i18n="colMove">Κίνηση</th><th data-i18n="colAmount">Ποσό</th><th data-i18n="colSource">Πηγή</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>2025-12</td><td>Nancy Pelosi</td><td><span class="ticker">NVDA</span></td><td>NVIDIA Corp</td><td><span class="badge-buy" data-i18n="buyCall">Αγορά Call</span></td><td>$500K-$1M</td><td><a href="https://www.capitoltrades.com/politicians/P000197" target="_blank">→</a></td></tr>
+        <tr><td>2025-11</td><td>Dan Crenshaw</td><td><span class="ticker">LMT</span></td><td>Lockheed Martin</td><td><span class="badge-buy" data-i18n="buy">Αγορά</span></td><td>$15K-$50K</td><td><a href="https://www.capitoltrades.com" target="_blank">→</a></td></tr>
+        <tr><td>2025-10</td><td>Tommy Tuberville</td><td><span class="ticker">F</span></td><td>Ford Motor</td><td><span class="badge-sell" data-i18n="sell">Πώληση</span></td><td>$1K-$15K</td><td><a href="https://senatestockwatcher.com" target="_blank">→</a></td></tr>
+        <tr><td>2025-09</td><td>Josh Gottheimer</td><td><span class="ticker">AMZN</span></td><td>Amazon.com</td><td><span class="badge-buy" data-i18n="buy">Αγορά</span></td><td>$15K-$50K</td><td><a href="https://housestockwatcher.com" target="_blank">→</a></td></tr>
+        <tr><td>2025-08</td><td>Ro Khanna</td><td><span class="ticker">MSFT</span></td><td>Microsoft</td><td><span class="badge-sell" data-i18n="sell">Πώληση</span></td><td>$50K-$100K</td><td><a href="https://housestockwatcher.com" target="_blank">→</a></td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:0.72rem;color:var(--text4);margin-top:8px" data-i18n="notableNote">* Ενδεικτικές εγγραφές. Για live δεδομένα χρησιμοποίησε τις παραπάνω πλατφόρμες.</p>
+  </div>
+</div>
+
+<!-- ══ HELP MODAL ══ -->
+<div class="modal-overlay" id="help-modal" onclick="closeHelpOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="help-title">❓ Οδηγίες Χρήσης</h2>
+      <button class="modal-close" onclick="closeHelp()">✕</button>
+    </div>
+    <div class="modal-body" id="help-body"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════
+// TRANSLATIONS
+// ═══════════════════════════════════
+const TR = {
+  el: {
+    tab13f: 'Hedge Funds (13F)', tabCongress: 'Congress Trades', tabPerf: 'Κοινές Θέσεις',
+    helpBtn: 'Οδηγίες',
+    emptyTitle: 'Επέλεξε έναν επενδυτή για να δεις τις θέσεις του',
+    emptySub: 'Δεδομένα απευθείας από SEC EDGAR',
+    searchPlaceholder: '🔍 Αναζήτηση εταιρείας...',
+    colCompany: 'Εταιρεία', colType: 'Τύπος', colValue: 'Αξία ($000) ▼',
+    colShares: 'Μετοχές', colPos: 'Θέση', colDate: 'Ημερομηνία',
+    colMember: 'Μέλος', colMove: 'Κίνηση', colAmount: 'Ποσό', colSource: 'Πηγή',
+    congressNote: '⚡ Τα δεδομένα Congress trades ανανεώνονται σε πραγματικό χρόνο στις παρακάτω πλατφόρμες.',
+    notableTitle: 'Γνωστές Πρόσφατες Κινήσεις (2025-2026)',
+    notableNote: '* Ενδεικτικές εγγραφές. Για live δεδομένα χρησιμοποίησε τις παραπάνω πλατφόρμες.',
+    buyCall: 'Αγορά Call', buy: 'Αγορά', sell: 'Πώληση',
+    infoName: 'Επενδυτής', infoPeriod: 'Περίοδος', infoPositions: 'Θέσεις', infoValue: 'Αξία',
+    records: 'εγγραφές', updatedLabel: 'Ενημέρωση: Ιούνιος 2026',
+    noDataTitle: 'Δεν υπάρχουν διαθέσιμα δεδομένα 13F', openEdgar: 'Άνοιγμα SEC EDGAR ↗',
+    perfNote: '📌 Μετοχές που κατέχουν 2+ επενδυτές ταυτόχρονα. Τιμές Q1 = κλείσιμο 31/3/2026 (υπολογισμένες από 13F value÷shares).',
+    perfConsensus: 'Consensus — 4 επενδυτές', perfOverlap: 'Overlap — 2 επενδυτές',
+    perfQ1: 'Τιμή 31/3/26', perfNow: 'Σήμερα',
+    refreshBtn: 'Ανανέωση τιμών', refreshing: 'Φόρτωση...', refreshOk: 'Τελευταία ανανέωση:',
+    refreshErr: 'Σφάλμα σύνδεσης — χρησιμοποιούνται τελευταίες γνωστές τιμές',
+    tabRT: 'Real-Time Insider',
+    rtNote: '🔔 Συναλλαγές Superinvestors ως insiders (Form 4) — τελευταίοι 6 μήνες. Πηγή: Dataroma. Τελευταία ανάκτηση: 8/6/2026.',
+    rtSearch: '🔍 Αναζήτηση fund / μετοχή...',
+    rtAll: 'Όλες', rtBuy: 'Αγορές', rtSell: 'Πωλήσεις',
+    rtFund: 'Fund / Investor', rtPrice: 'Τιμή', rtTotal: 'Σύνολο', rtFiling: 'Αρχειοθέτηση',
+    rtFooter: '* A = Amendment filing. Δεδομένα από SEC Form 4 μέσω Dataroma.com.',
+    rtSummBuys: 'Αγορές', rtSummSells: 'Πωλήσεις', rtSummFunds: 'Funds', rtSummVol: 'Συνολικός όγκος',
+    tabScore: 'Smart Score',
+    scoreNote: 'Συνδυαστικό score βάσει 13F holdings, Insider (Form 4) και Congress trades. Ανανεώνεται αυτόματα από τα δεδομένα των άλλων tabs.',
+    scoreLegStrong: 'Ισχυρή επιβεβαίωση', scoreLegMod: 'Μέτρια', scoreLegWeak: 'Αδύναμη', scoreLegLow: 'Χαμηλή',
+    scoreLegBuySignal: 'Αγορά signal', scoreLegSellSignal: 'Πώληση signal',
+    scoreHasSignal: 'Με signal', scoreHasCongress: 'Congress signal',
+    scoreInvestors: 'Επενδυτές', scoreInsider: 'Insider', scoreCongress: 'Congress',
+    scoreTotalVal: 'Συνολική αξία', scorePut: 'Bearish θέση',
+    'ct-desc': 'Η καλύτερη πλατφόρμα. Αναζήτηση ανά politician, ticker, ημερομηνία.',
+    'qq-desc': 'Live Congress trades, House & Senate.',
+    'ssw-desc': 'Αποκλειστικά Γερουσία. Δωρεάν, ιστορικά από 2012.',
+    'hd-desc': 'Η επίσημη πηγή. Πλήρη PTR σε PDF.',
+    'oi-desc': 'Insider trades από στελέχη εταιρειών, real-time.',
+    'uw-desc': 'Ranking πολιτικών, options trades, τελευταίες κινήσεις.',
+  },
+  en: {
+    tab13f: 'Hedge Funds (13F)', tabCongress: 'Congress Trades', tabPerf: 'Common Holdings',
+    helpBtn: 'Guide',
+    emptyTitle: 'Select an investor to view their holdings',
+    emptySub: 'Data sourced directly from SEC EDGAR',
+    searchPlaceholder: '🔍 Search company...',
+    colCompany: 'Company', colType: 'Type', colValue: 'Value ($000) ▼',
+    colShares: 'Shares', colPos: 'Position', colDate: 'Date',
+    colMember: 'Member', colMove: 'Action', colAmount: 'Amount', colSource: 'Source',
+    congressNote: '⚡ Congress trade data updates in real time on the platforms below.',
+    notableTitle: 'Notable Recent Trades (2025-2026)',
+    notableNote: '* Sample records. For live data use the platforms above.',
+    buyCall: 'Buy Call', buy: 'Buy', sell: 'Sell',
+    infoName: 'Investor', infoPeriod: 'Period', infoPositions: 'Positions', infoValue: 'Value',
+    records: 'entries', updatedLabel: 'Updated: June 2026',
+    noDataTitle: 'No 13F data available', openEdgar: 'Open SEC EDGAR ↗',
+    perfNote: '📌 Stocks held by 2+ investors simultaneously. Q1 prices = closing price 31/3/2026 (calculated from 13F value÷shares).',
+    perfConsensus: 'Consensus — 4 investors', perfOverlap: 'Overlap — 2 investors',
+    perfQ1: 'Price 31/3/26', perfNow: 'Today',
+    refreshBtn: 'Refresh prices', refreshing: 'Loading...', refreshOk: 'Last refresh:',
+    refreshErr: 'Connection error — using last known prices',
+    tabRT: 'Real-Time Insider',
+    rtNote: '🔔 Superinvestor insider transactions (Form 4) — last 6 months. Source: Dataroma. Last fetched: 8/6/2026.',
+    rtSearch: '🔍 Search fund / stock...',
+    rtAll: 'All', rtBuy: 'Buys', rtSell: 'Sells',
+    rtFund: 'Fund / Investor', rtPrice: 'Price', rtTotal: 'Total', rtFiling: 'Filing',
+    rtFooter: '* A = Amendment filing. Data from SEC Form 4 via Dataroma.com.',
+    rtSummBuys: 'Buys', rtSummSells: 'Sells', rtSummFunds: 'Funds', rtSummVol: 'Total volume',
+    tabScore: 'Smart Score',
+    scoreNote: 'Combined score based on 13F holdings, Insider (Form 4) activity, and Congress trades. Auto-refreshes from the other tabs\' data.',
+    scoreLegStrong: 'Strong conviction', scoreLegMod: 'Moderate', scoreLegWeak: 'Weak', scoreLegLow: 'Low',
+    scoreLegBuySignal: 'Buy signal', scoreLegSellSignal: 'Sell signal',
+    scoreHasSignal: 'With signal', scoreHasCongress: 'Congress signal',
+    scoreInvestors: 'Investors', scoreInsider: 'Insider', scoreCongress: 'Congress',
+    scoreTotalVal: 'Total value', scorePut: 'Bearish position',
+    'ct-desc': 'Best platform. Search by politician, ticker, date.',
+    'qq-desc': 'Live Congress trades, House & Senate.',
+    'ssw-desc': 'Senate only. Free, historical data from 2012.',
+    'hd-desc': 'Official source. Full PTR (Periodic Transaction Reports) as PDFs.',
+    'oi-desc': 'Corporate executive insider trades — Form 4 real-time.',
+    'uw-desc': 'Politicians ranked by performance, options trades, latest moves.',
+  }
+};
+
+const HELP_CONTENT = {
+  el: `
+    <div class="help-section">
+      <h3>🐋 Τι είναι ο Smart Money Tracker;</h3>
+      <p>Εργαλείο παρακολούθησης κινήσεων των μεγαλύτερων hedge fund managers του κόσμου, βασισμένο σε δημόσια αρχεία <strong>SEC 13F</strong> και αποκαλύψεις <strong>Congress trades</strong>.</p>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>📊 Tab 1 — Hedge Funds (13F)</h3>
+      <ul>
+        <li>Κλίκαρε μια <strong>κάρτα επενδυτή</strong> για να δεις τις θέσεις του.</li>
+        <li>Ο πίνακας εμφανίζει: εταιρεία, τύπο μετοχής, αξία σε $000, αριθμό μετοχών, ποσοστό χαρτοφυλακίου και τύπο θέσης.</li>
+        <li>Κλίκαρε οποιοδήποτε <strong>κεφαλίδα στήλης</strong> για ταξινόμηση (ascending/descending).</li>
+        <li>Χρησιμοποίησε το <strong>πλαίσιο αναζήτησης</strong> για φιλτράρισμα ανά εταιρεία.</li>
+        <li>Τύποι θέσεων: <span style="background:#eff6ff;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:0.8rem;font-weight:700">SH</span> = μετοχές (long), <span style="background:#dcfce7;color:#15803d;padding:1px 5px;border-radius:3px;font-size:0.8rem;font-weight:700">Call</span> = ανοδική επιλογή, <span style="background:#fee2e2;color:#b91c1c;padding:1px 5px;border-radius:3px;font-size:0.8rem;font-weight:700">Put</span> = καθοδική επιλογή, <span style="background:#f3f4f6;color:#374151;padding:1px 5px;border-radius:3px;font-size:0.8rem;font-weight:700">PRN</span> = ομολογία.</li>
+        <li>Τα 13F είναι <strong>τριμηνιαία</strong> — δείχνουν θέσεις στο τέλος κάθε quarter, με καθυστέρηση 45 ημερών.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🏛 Tab 2 — Congress Trades</h3>
+      <ul>
+        <li>Συνδέσμοι προς live πλατφόρμες παρακολούθησης συναλλαγών βουλευτών και γερουσιαστών.</li>
+        <li>Ο πίνακας κάτω δείχνει ενδεικτικές γνωστές κινήσεις — για πλήρη και live δεδομένα χρησιμοποίησε τους συνδέσμους.</li>
+        <li>Οι πολιτικοί υποχρεούνται να αποκαλύπτουν συναλλαγές εντός <strong>45 ημερών</strong> (νόμος STOCK Act).</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>📈 Tab 3 — Κοινές Θέσεις</h3>
+      <ul>
+        <li>Εμφανίζει μετοχές που <strong>κατέχουν 2 ή περισσότεροι</strong> επενδυτές ταυτόχρονα.</li>
+        <li>Η <strong>τιμή Q1 2026</strong> υπολογίζεται από τα 13F: (Αξία σε $000 × 1000) ÷ Μετοχές = τιμή κλεισίματος 31/3/2026.</li>
+        <li>Η <strong>τιμή "Σήμερα"</strong> ανανεώνεται πατώντας το κουμπί 🔄.</li>
+        <li>Η μπάρα χρώματος δείχνει το μέγεθος της κίνησης (πράσινο = άνοδος, κόκκινο = πτώση).</li>
+        <li>Τα pills δείχνουν ποιος κατέχει τη μετοχή και με πόσα χρήματα. <span style="background:#fee2e2;color:#b91c1c;padding:1px 5px;border-radius:3px;font-size:0.75rem;font-weight:700">PUT⚠️</span> = bearish θέση.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🎛 Κουμπιά στο Header</h3>
+      <ul>
+        <li><span class="help-kbd">🌙</span> / <span class="help-kbd">☀️</span> — Εναλλαγή μεταξύ <strong>dark</strong> και <strong>light</strong> mode. Η επιλογή αποθηκεύεται αυτόματα.</li>
+        <li><span class="help-kbd">EN</span> / <span class="help-kbd">ΕΛ</span> — Εναλλαγή γλώσσας μεταξύ <strong>Αγγλικών</strong> και <strong>Ελληνικών</strong>. Αλλάζει όλο το interface.</li>
+        <li><span class="help-kbd">❓ Οδηγίες</span> — Ανοίγει αυτό το παράθυρο βοήθειας.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🔔 Tab 4 — Real-Time Insider</h3>
+      <ul>
+        <li>Εμφανίζει τελευταίες συναλλαγές <strong>Form 4</strong> από το <a href="https://dataroma.com/m/rt.php" target="_blank" style="color:var(--accent)">Dataroma</a> — αρχεία που υποβάλλονται στη SEC από μεγάλους επενδυτές.</li>
+        <li>Τα δεδομένα περιλαμβάνουν: ημερομηνία, fund/επενδυτή, τίτλο, αγορά/πώληση, αριθμό μετοχών, τιμή και συνολική αξία.</li>
+        <li>Στην κορυφή εμφανίζεται σύνοψη με τον αριθμό αγορών/πωλήσεων και συνολικά ποσά.</li>
+        <li><span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-size:0.8rem;font-weight:700">Buy</span> = ο επενδυτής αγοράζει — bullish σήμα · <span style="background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:4px;font-size:0.8rem;font-weight:700">Sell</span> = πώληση — bearish σήμα.</li>
+        <li>Η κίνηση επενδυτή <strong>μέσα στη χρονιά</strong> είναι σημαντική — οι Form 4 υποβάλλονται εντός 2 εργάσιμων ημερών.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🎯 Tab 5 — Smart Money Score</h3>
+      <ul>
+        <li>Ενοποιεί <strong>όλες τις πηγές</strong> (13F + Insider RT + Congress) σε ένα βαθμό πεποίθησης ανά μετοχή.</li>
+        <li>Εμφανίζει μόνο μετοχές που κατέχουν <strong>2+ επενδυτές</strong>.</li>
+        <li><strong>Φόρμουλα βαθμολογίας (0–100):</strong></li>
+      </ul>
+      <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:4px 0 8px">
+        <tr style="background:var(--surface2)"><th style="padding:4px 8px;text-align:left">Παράγοντας</th><th style="padding:4px 8px;text-align:right">Βάρος</th></tr>
+        <tr><td style="padding:4px 8px">📊 Αριθμός επενδυτών 13F</td><td style="padding:4px 8px;text-align:right">35%</td></tr>
+        <tr style="background:var(--surface2)"><td style="padding:4px 8px">💰 Συνολική αξία 13F</td><td style="padding:4px 8px;text-align:right">35%</td></tr>
+        <tr><td style="padding:4px 8px">🔔 Form 4 Insider RT</td><td style="padding:4px 8px;text-align:right">±15% (Buy/Sell)</td></tr>
+        <tr style="background:var(--surface2)"><td style="padding:4px 8px">🏛 Congress signal</td><td style="padding:4px 8px;text-align:right">±10% (Buy/Sell)</td></tr>
+        <tr><td style="padding:4px 8px">📌 Συγκέντρωση χαρτοφυλακίου</td><td style="padding:4px 8px;text-align:right">+5%</td></tr>
+        <tr style="background:#fee2e2"><td style="padding:4px 8px">⚠️ Put θέσεις (penalty)</td><td style="padding:4px 8px;text-align:right">−5 ανά put</td></tr>
+      </table>
+      <ul>
+        <li>Badges: <span style="font-size:0.9rem">🔥</span> ≥60 Ισχυρό · <span style="font-size:0.9rem">✅</span> 40–59 Μέτριο · <span style="font-size:0.9rem">⚠️</span> 20–39 Αδύναμο · <span style="font-size:0.9rem">🔵</span> &lt;20 Χαμηλό</li>
+        <li>Φιλτράρισμα ανά: Όλες · Με signal (RT ή Congress) · Μόνο Congress signal.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🔄 Ανανέωση Δεδομένων</h3>
+      <ul>
+        <li>Στο tab <strong>Κοινές Θέσεις</strong>, πάτα το κουμπί <span class="help-kbd">🔄 Ανανέωση τιμών</span>.</li>
+        <li>Το σύστημα συνδέεται με το <strong>Yahoo Finance</strong> για τρέχουσες τιμές.</li>
+        <li>Σε περίπτωση σφάλματος (CORS / network), χρησιμοποιούνται οι τελευταίες γνωστές τιμές.</li>
+        <li>Τα 13F δεδομένα (ονόματα επενδυτών, αριθμοί μετοχών) είναι <strong>σταθερά</strong> — ανανεώνονται μόνο τριμηνιαία από τη SEC.</li>
+      </ul>
+    </div>
+  `,
+  en: `
+    <div class="help-section">
+      <h3>🐋 What is Smart Money Tracker?</h3>
+      <p>A tool for tracking the moves of the world's largest hedge fund managers, based on public <strong>SEC 13F</strong> filings and <strong>Congress trade</strong> disclosures.</p>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>📊 Tab 1 — Hedge Funds (13F)</h3>
+      <ul>
+        <li>Click an <strong>investor card</strong> to view their holdings.</li>
+        <li>The table shows: company, share class, value in $000, number of shares, portfolio percentage, and position type.</li>
+        <li>Click any <strong>column header</strong> to sort ascending/descending.</li>
+        <li>Use the <strong>search box</strong> to filter by company name.</li>
+        <li>Position types: <span style="background:#eff6ff;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:0.8rem;font-weight:700">SH</span> = shares (long), <span style="background:#dcfce7;color:#15803d;padding:1px 5px;border-radius:3px;font-size:0.8rem;font-weight:700">Call</span> = bullish option, <span style="background:#fee2e2;color:#b91c1c;padding:1px 5px;border-radius:3px;font-size:0.8rem;font-weight:700">Put</span> = bearish option, <span style="background:#f3f4f6;color:#374151;padding:1px 5px;border-radius:3px;font-size:0.8rem;font-weight:700">PRN</span> = bond.</li>
+        <li>13F filings are <strong>quarterly</strong> — they show positions at quarter-end, with a 45-day delay.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🏛 Tab 2 — Congress Trades</h3>
+      <ul>
+        <li>Links to live platforms tracking trades by Representatives and Senators.</li>
+        <li>The table below shows sample known trades — for full live data use the links above.</li>
+        <li>Politicians are required to disclose trades within <strong>45 days</strong> (STOCK Act).</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>📈 Tab 3 — Common Holdings</h3>
+      <ul>
+        <li>Shows stocks held by <strong>2 or more</strong> investors simultaneously.</li>
+        <li>The <strong>Q1 2026 price</strong> is derived from 13F filings: (Value in $000 × 1000) ÷ Shares = closing price on 31/3/2026.</li>
+        <li>The <strong>"Today" price</strong> updates when you press the 🔄 button.</li>
+        <li>The color bar shows the magnitude of the move (green = up, red = down).</li>
+        <li>Pills show who holds the stock and for how much. <span style="background:#fee2e2;color:#b91c1c;padding:1px 5px;border-radius:3px;font-size:0.75rem;font-weight:700">PUT⚠️</span> = bearish position.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🎛 Header Buttons</h3>
+      <ul>
+        <li><span class="help-kbd">🌙</span> / <span class="help-kbd">☀️</span> — Toggle between <strong>dark</strong> and <strong>light</strong> mode. Your preference is saved automatically.</li>
+        <li><span class="help-kbd">EN</span> / <span class="help-kbd">ΕΛ</span> — Switch language between <strong>English</strong> and <strong>Greek</strong>. Changes the entire interface.</li>
+        <li><span class="help-kbd">❓ Guide</span> — Opens this help window.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🔔 Tab 4 — Real-Time Insider</h3>
+      <ul>
+        <li>Shows the latest <strong>Form 4</strong> transactions from <a href="https://dataroma.com/m/rt.php" target="_blank" style="color:var(--accent)">Dataroma</a> — SEC filings submitted by major investors.</li>
+        <li>Data includes: date, fund/investor, security, buy/sell, shares, price, and total value.</li>
+        <li>A summary at the top shows the number of buys/sells and total amounts.</li>
+        <li><span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:4px;font-size:0.8rem;font-weight:700">Buy</span> = investor is buying — bullish signal · <span style="background:#fee2e2;color:#b91c1c;padding:1px 6px;border-radius:4px;font-size:0.8rem;font-weight:700">Sell</span> = selling — bearish signal.</li>
+        <li>In-year investor activity is significant — Form 4 filings must be submitted within 2 business days.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🎯 Tab 5 — Smart Money Score</h3>
+      <ul>
+        <li>Consolidates <strong>all sources</strong> (13F + Insider RT + Congress) into a single conviction score per stock.</li>
+        <li>Only shows stocks held by <strong>2+ investors</strong>.</li>
+        <li><strong>Scoring formula (0–100):</strong></li>
+      </ul>
+      <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:4px 0 8px">
+        <tr style="background:var(--surface2)"><th style="padding:4px 8px;text-align:left">Factor</th><th style="padding:4px 8px;text-align:right">Weight</th></tr>
+        <tr><td style="padding:4px 8px">📊 Number of 13F investors</td><td style="padding:4px 8px;text-align:right">35%</td></tr>
+        <tr style="background:var(--surface2)"><td style="padding:4px 8px">💰 Total 13F value</td><td style="padding:4px 8px;text-align:right">35%</td></tr>
+        <tr><td style="padding:4px 8px">🔔 Form 4 Insider RT</td><td style="padding:4px 8px;text-align:right">±15% (Buy/Sell)</td></tr>
+        <tr style="background:var(--surface2)"><td style="padding:4px 8px">🏛 Congress signal</td><td style="padding:4px 8px;text-align:right">±10% (Buy/Sell)</td></tr>
+        <tr><td style="padding:4px 8px">📌 Portfolio concentration</td><td style="padding:4px 8px;text-align:right">+5%</td></tr>
+        <tr style="background:#fee2e2"><td style="padding:4px 8px">⚠️ Put positions (penalty)</td><td style="padding:4px 8px;text-align:right">−5 per put</td></tr>
+      </table>
+      <ul>
+        <li>Badges: <span style="font-size:0.9rem">🔥</span> ≥60 Strong · <span style="font-size:0.9rem">✅</span> 40–59 Moderate · <span style="font-size:0.9rem">⚠️</span> 20–39 Weak · <span style="font-size:0.9rem">🔵</span> &lt;20 Low</li>
+        <li>Filter by: All · With signal (RT or Congress) · Congress signal only.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🔄 Refreshing Data</h3>
+      <ul>
+        <li>In the <strong>Common Holdings</strong> tab, press the <span class="help-kbd">🔄 Refresh prices</span> button.</li>
+        <li>The app connects to <strong>Yahoo Finance</strong> for current prices.</li>
+        <li>If there's an error (CORS / network), the last known prices are used as fallback.</li>
+        <li>13F data (investor names, share counts) is <strong>static</strong> — it only updates quarterly from the SEC.</li>
+      </ul>
+    </div>
+  `
+};
+
+let currentLang = localStorage.getItem('lang') || 'el';
+
+function t(k) { return TR[currentLang][k] || TR.el[k] || k; }
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.getAttribute('data-i18n')));
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => el.placeholder = t(el.getAttribute('data-i18n-placeholder')));
+  document.getElementById('updated-label').textContent = t('updatedLabel');
+  document.getElementById('lang-btn').textContent = currentLang === 'el' ? 'EN' : 'ΕΛ';
+  if (activeInvestor) selectInvestor(activeInvestor);
+  renderPerformance();
+}
+
+function toggleLang() {
+  currentLang = currentLang === 'el' ? 'en' : 'el';
+  localStorage.setItem('lang', currentLang);
+  applyTranslations();
+}
+
+// ═══════════════════════════════════
+// DARK MODE
+// ═══════════════════════════════════
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? '' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  document.getElementById('theme-btn').textContent = isDark ? '🌙' : '☀️';
+  localStorage.setItem('theme', next);
+}
+// Restore saved theme
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('theme-btn').textContent = '☀️';
+  }
+})();
+
+// ═══════════════════════════════════
+// HELP MODAL
+// ═══════════════════════════════════
+function openHelp() {
+  document.getElementById('help-title').textContent = currentLang === 'el' ? '❓ Οδηγίες Χρήσης' : '❓ User Guide';
+  document.getElementById('help-body').innerHTML = HELP_CONTENT[currentLang];
+  document.getElementById('help-modal').classList.add('open');
+}
+function closeHelp() { document.getElementById('help-modal').classList.remove('open'); }
+function closeHelpOutside(e) { if (e.target === document.getElementById('help-modal')) closeHelp(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
+
+// ═══════════════════════════════════
+// TABS
+// ═══════════════════════════════════
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ═══════════════════════════════════
+// INVESTOR DATA
+// ═══════════════════════════════════
+const INVESTORS = [
+  { id:'burry', name:'Michael Burry', fund:'Scion Asset Mgmt', period:'Q3 2025', filingDate:'2025-11-03',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1649339&type=13F-HR',
+    holdings:[
+      {name:'PALANTIR TECHNOLOGIES',class:'CL A',value:912100,shares:5000000,pos:'Put'},
+      {name:'NVIDIA CORPORATION',class:'COM',value:186580,shares:1000000,pos:'Put'},
+      {name:'PFIZER INC',class:'COM',value:152880,shares:6000000,pos:'Call'},
+      {name:'HALLIBURTON CO',class:'COM',value:61500,shares:2500000,pos:'Call'},
+      {name:'MOLINA HEALTHCARE INC',class:'COM',value:23920,shares:125000,pos:'SH'},
+      {name:'LULULEMON ATHLETICA',class:'COM',value:17793,shares:100000,pos:'SH'},
+      {name:'SLM CORP',class:'COM',value:13287,shares:480054,pos:'SH'},
+      {name:'BRUKER CORP',class:'PREF SER A',value:13137,shares:48334,pos:'SH'},
+    ]},
+  { id:'ackman', name:'Bill Ackman', fund:'Pershing Square', period:'Q1 2026', filingDate:'2026-05-15',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1336528&type=13F-HR',
+    holdings:[
+      {name:'BROOKFIELD CORP',class:'COM',value:2415946,shares:59697208,pos:'SH'},
+      {name:'AMAZON COM INC',class:'COM',value:2385104,shares:11451981,pos:'SH'},
+      {name:'UBER TECHNOLOGIES INC',class:'COM',value:2154934,shares:29958771,pos:'SH'},
+      {name:'MICROSOFT CORP',class:'COM',value:2092970,shares:5654078,pos:'SH'},
+      {name:'RESTAURANT BRANDS INTL',class:'COM',value:1673501,shares:22645483,pos:'SH'},
+      {name:'META PLATFORMS INC',class:'CL A',value:1522358,shares:2660861,pos:'SH'},
+      {name:'HOWARD HUGHES HOLDINGS',class:'COM',value:1192582,shares:18852064,pos:'SH'},
+      {name:'SEAPORT ENTERTAINMENT GROUP',class:'COM',value:107911,shares:5023780,pos:'SH'},
+      {name:'HERTZ GLOBAL HLDGS INC',class:'COM',value:70262,shares:15241127,pos:'SH'},
+      {name:'ALPHABET INC',class:'CAP STK CL C',value:89422,shares:311726,pos:'SH'},
+      {name:'ALPHABET INC',class:'CAP STK CL A',value:9310,shares:32376,pos:'SH'},
+    ]},
+  { id:'druck', name:'Stan Druckenmiller', fund:'Duquesne Family Office', period:'Q1 2026', filingDate:'2026-05-15',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1536411&type=13F-HR',
+    holdings:[
+      {name:'NATERA INC',class:'COM',value:612691,shares:3063606,pos:'SH'},
+      {name:'TAIWAN SEMICONDUCTOR (TSMC)',class:'ADS',value:167380,shares:495280,pos:'SH'},
+      {name:'ISHARES MSCI BRAZIL (CALL)',class:'ETF',value:162313,shares:4228000,pos:'Call'},
+      {name:'INVESCO S&P500 EQL WGT (CALL)',class:'ETF',value:157566,shares:821000,pos:'Call'},
+      {name:'ISHARES MSCI BRAZIL',class:'ETF',value:131915,shares:3436170,pos:'SH'},
+      {name:'BBB FOODS INC',class:'CL A',value:109972,shares:3109202,pos:'SH'},
+      {name:'ALCOA CORP',class:'COM',value:99057,shares:1493390,pos:'SH'},
+      {name:'NEWAMSTERDAM PHARMA',class:'ORD',value:98275,shares:3070146,pos:'SH'},
+      {name:'SEA LTD',class:'ADS',value:91083,shares:1099905,pos:'SH'},
+      {name:'STMICROELECTRONICS NV',class:'NY REG',value:90275,shares:2612880,pos:'SH'},
+      {name:'WOODWARD INC',class:'COM',value:75648,shares:211355,pos:'SH'},
+      {name:'TEVA PHARMACEUTICAL',class:'ADS',value:71604,shares:2377285,pos:'SH'},
+      {name:'ROKU INC',class:'CL A',value:70983,shares:750190,pos:'SH'},
+      {name:'BROADCOM INC',class:'COM',value:60650,shares:195955,pos:'SH'},
+      {name:'STATE STR SPDR S&P500 (CALL)',class:'ETF',value:58531,shares:90000,pos:'Call'},
+      {name:'COUPANG INC',class:'CL A',value:50362,shares:2667485,pos:'SH'},
+      {name:'OPTION CARE HEALTH',class:'COM',value:50301,shares:1868550,pos:'SH'},
+      {name:'AMAZON COM (CALL)',class:'COM',value:41654,shares:200000,pos:'Call'},
+      {name:'CRH PLC',class:'ORD',value:39689,shares:377555,pos:'SH'},
+      {name:'FIGURE TECHNOLOGY',class:'CL A',value:39057,shares:1150415,pos:'SH'},
+      {name:'GLOBAL X GB MSCI AR ETF',class:'ETF',value:36152,shares:387400,pos:'SH'},
+      {name:'CARIS LIFE SCIENCES',class:'COM',value:33873,shares:1894450,pos:'SH'},
+      {name:'RESTAURANT BRANDS INTL',class:'COM',value:33583,shares:454435,pos:'SH'},
+      {name:'REVOLUTION MEDICINES',class:'COM',value:30717,shares:315860,pos:'SH'},
+      {name:'LATTICE SEMICONDUCTOR',class:'COM',value:29974,shares:323135,pos:'SH'},
+      {name:'UNITED AIRLINES HOLDINGS',class:'COM',value:24168,shares:262495,pos:'SH'},
+      {name:'SANDISK CORP',class:'COM',value:24241,shares:38155,pos:'SH'},
+      {name:'HUMANA INC',class:'COM',value:23842,shares:137505,pos:'SH'},
+      {name:'JABIL INC',class:'COM',value:21835,shares:82200,pos:'SH'},
+      {name:'SOUTHERN COPPER CORP',class:'COM',value:20964,shares:121843,pos:'SH'},
+      {name:'ISHARES S&P GSCI COMMODITY',class:'ETF',value:20737,shares:643000,pos:'SH'},
+      {name:'CLEVELAND-CLIFFS',class:'COM',value:19549,shares:2313455,pos:'SH'},
+      {name:'ISHARES RUSSELL 2000 (CALL)',class:'ETF',value:19592,shares:79000,pos:'Call'},
+      {name:'NUVATION BIO INC',class:'CL A',value:19476,shares:4539800,pos:'SH'},
+      {name:'SEAGATE TECHNOLOGY',class:'ORD',value:19862,shares:50700,pos:'SH'},
+      {name:'BLOOM ENERGY CORP',class:'CL A',value:18470,shares:136320,pos:'SH'},
+      {name:'INTEL CORP',class:'COM',value:18155,shares:411400,pos:'SH'},
+      {name:'PROTAGONIST THERAPEUTICS',class:'COM',value:16832,shares:159700,pos:'SH'},
+      {name:'BELITE BIO ADS',class:'ADS',value:16917,shares:106100,pos:'SH'},
+      {name:'UNITY SOFTWARE',class:'COM',value:16209,shares:738785,pos:'SH'},
+      {name:'ARM HOLDINGS',class:'ADS',value:16142,shares:106700,pos:'SH'},
+      {name:'OLEMA PHARMACEUTICALS',class:'COM',value:14714,shares:986827,pos:'SH'},
+      {name:'QNITY ELECTRONICS',class:'COM',value:14498,shares:125655,pos:'SH'},
+      {name:'ADMA BIOLOGICS',class:'COM',value:13926,shares:1545610,pos:'SH'},
+      {name:'XENON PHARMACEUTICALS',class:'COM',value:13875,shares:238600,pos:'SH'},
+      {name:'DAKTRONICS INC',class:'COM',value:11000,shares:562637,pos:'SH'},
+      {name:'CLOUDFLARE INC',class:'CL A',value:10840,shares:52535,pos:'SH'},
+      {name:'VISTA ENERGY SAB',class:'ADS',value:10166,shares:134700,pos:'SH'},
+      {name:'AMAZON COM INC',class:'COM',value:9539,shares:45800,pos:'SH'},
+      {name:'TWIST BIOSCIENCE',class:'COM',value:9789,shares:206000,pos:'SH'},
+      {name:'CELESTICA INC',class:'COM',value:9373,shares:33275,pos:'SH'},
+      {name:'COHERENT CORP',class:'COM',value:9624,shares:40400,pos:'SH'},
+      {name:'DBV TECHNOLOGIES ADS',class:'ADS',value:8008,shares:383363,pos:'SH'},
+      {name:'STUBHUB HOLDINGS',class:'CL A',value:8531,shares:1367177,pos:'SH'},
+      {name:'MICRON TECHNOLOGY',class:'COM',value:7905,shares:23400,pos:'SH'},
+      {name:'ECHOSTAR CORP',class:'CL A',value:7114,shares:60765,pos:'SH'},
+      {name:'ALMONTY INDUSTRIES',class:'COM NEW',value:6804,shares:469880,pos:'SH'},
+      {name:'PURECYCLE TECHNOLOGIES',class:'COM',value:4999,shares:963189,pos:'SH'},
+      {name:'LUMENTUM HOLDINGS',class:'COM',value:4893,shares:6963,pos:'SH'},
+      {name:'SOLSTICE ADVANCED MATERIALS',class:'COM',value:4762,shares:62525,pos:'SH'},
+      {name:'MERCADOLIBRE',class:'COM',value:4782,shares:2766,pos:'SH'},
+      {name:'JABS NV',class:'CL A',value:11780,shares:655900,pos:'SH'},
+      {name:'LINDE PLC',class:'SHS',value:20425,shares:41200,pos:'SH'},
+      {name:'LYONDELLBASELL INDUSTRIES',class:'SHS-A',value:10588,shares:131435,pos:'SH'},
+      {name:'WABTEC',class:'COM',value:23715,shares:94895,pos:'SH'},
+      {name:'WAVE LIFE SCIENCES',class:'SHS',value:1254,shares:173000,pos:'SH'},
+      {name:'WESTLAKE CORPORATION',class:'COM',value:2476,shares:21194,pos:'SH'},
+    ]},
+  { id:'tepper', name:'David Tepper', fund:'Appaloosa LP', period:'Q1 2026', filingDate:'2026-05-15',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1656456&type=13F-HR',
+    holdings:[
+      {name:'AMAZON COM INC',class:'COM',value:899726,shares:4320000,pos:'SH'},
+      {name:'MICRON TECHNOLOGY INC',class:'COM',value:562504,shares:1665000,pos:'SH'},
+      {name:'ALPHABET INC',class:'CAP STK CL C',value:497042,shares:1732700,pos:'SH'},
+      {name:'UBER TECHNOLOGIES INC',class:'COM',value:455513,shares:6332720,pos:'SH'},
+      {name:'TAIWAN SEMICONDUCTOR',class:'SPONSORED ADS',value:448629,shares:1327500,pos:'SH'},
+      {name:'ALIBABA GROUP HLDG LTD',class:'SPONSORED ADS',value:434719,shares:3465000,pos:'SH'},
+      {name:'VISTRA CORP',class:'COM',value:304017,shares:2022332,pos:'SH'},
+      {name:'ISHARES MSCI SOUTH KOREA ETF',class:'ETF',value:295224,shares:2400000,pos:'SH'},
+      {name:'NVIDIA CORPORATION',class:'COM',value:256630,shares:1471500,pos:'SH'},
+      {name:'NRG ENERGY INC',class:'COM NEW',value:253471,shares:1734442,pos:'SH'},
+      {name:'META PLATFORMS INC',class:'CL A',value:249735,shares:436500,pos:'SH'},
+      {name:'SANDISK CORP',class:'COM',value:178689,shares:281250,pos:'SH'},
+      {name:'CORNING INC',class:'COM',value:153578,shares:1129500,pos:'SH'},
+      {name:'WHIRLPOOL CORP',class:'COM',value:105144,shares:1950000,pos:'SH'},
+      {name:'PDD HOLDINGS INC',class:'SPONSORED ADS',value:91962,shares:900000,pos:'SH'},
+      {name:'LAM RESEARCH CORP',class:'COM NEW',value:81725,shares:382500,pos:'SH'},
+      {name:'BAIDU INC',class:'SPON ADR REP A',value:77114,shares:692100,pos:'SH'},
+      {name:'L3HARRIS TECHNOLOGIES INC',class:'COM',value:68340,shares:198000,pos:'SH'},
+      {name:'RTX CORPORATION',class:'COM',value:65972,shares:342000,pos:'SH'},
+      {name:'ASML HLDG NV',class:'N Y REGISTRY SHS',value:65381,shares:49500,pos:'SH'},
+      {name:'QUALCOMM INC',class:'COM',value:64211,shares:498613,pos:'SH'},
+      {name:'ADVANCED MICRO DEVICES',class:'COM',value:45039,shares:221400,pos:'SH'},
+      {name:'JD.COM INC',class:'SPON ADS CL A',value:38589,shares:1305000,pos:'SH'},
+      {name:'LYFT INC',class:'CL A COM',value:35910,shares:2700000,pos:'SH'},
+      {name:'MICROSOFT CORP',class:'COM',value:33315,shares:90000,pos:'SH'},
+      {name:'KRANESHARES CSI CHINA INTERNET',class:'ETF',value:30704,shares:1080000,pos:'SH'},
+      {name:'ENERGY TRANSFER L P',class:'COM UT LTD PTN',value:30419,shares:1576125,pos:'SH'},
+      {name:'MPLX LP',class:'COM UNIT REP LTD',value:28675,shares:502460,pos:'SH'},
+      {name:'UNITEDHEALTH GROUP INC',class:'COM',value:24353,shares:90000,pos:'SH'},
+      {name:'DEUTSCHE BK AG',class:'NAMEN AKT',value:7672,shares:257616,pos:'SH'},
+    ]},
+  { id:'buffett', name:'Warren Buffett', fund:'Berkshire Hathaway', period:'Q1 2026', filingDate:'2026-05-15',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1067983&type=13F-HR',
+    holdings:[
+      {name:'AMERICAN EXPRESS CO',class:'COM',value:45087985,shares:149061045,pos:'SH'},
+      {name:'COCA COLA CO',class:'COM',value:21501064,shares:282722729,pos:'SH'},
+      {name:'APPLE INC',class:'COM',value:20471925,shares:80664820,pos:'SH'},
+      {name:'OCCIDENTAL PETE CORP',class:'COM',value:17221193,shares:264941431,pos:'SH'},
+      {name:'BANK AMERICA CORP',class:'COM',value:15151500,shares:310800000,pos:'SH'},
+      {name:'CHEVRON CORPORATION',class:'COM',value:12052287,shares:58251749,pos:'SH'},
+      {name:'ALPHABET INC',class:'CAP STK CL A',value:11871368,shares:41283098,pos:'SH'},
+      {name:'CHUBB LTD SWITZ',class:'COM',value:11162836,shares:34249183,pos:'SH'},
+      {name:'KRAFT HEINZ CO',class:'COM',value:7323527,shares:325634818,pos:'SH'},
+      {name:'MOODYS CORP',class:'COM',value:5507111,shares:12623750,pos:'SH'},
+      {name:'DELTA AIR LINES INC',class:'COM NEW',value:2646533,shares:39809456,pos:'SH'},
+      {name:'SIRIUSXM HOLDINGS INC',class:'COMMON STOCK',value:2511617,shares:108822227,pos:'SH'},
+      {name:'DAVITA INC',class:'COM',value:2324865,shares:15126977,pos:'SH'},
+      {name:'VERISIGN INC',class:'COM',value:1991085,shares:8016933,pos:'SH'},
+      {name:'KROGER CO',class:'COM',value:1972335,shares:27257260,pos:'SH'},
+      {name:'NEW YORK TIMES CO',class:'CL A',value:1150997,shares:13746535,pos:'SH'},
+      {name:'LENNAR CORP',class:'CL A',value:877053,shares:10099642,pos:'SH'},
+      {name:'CAPITAL ONE FINL CORP',class:'COM',value:560751,shares:3073787,pos:'SH'},
+      {name:'ALLY FINL INC',class:'COM',value:498993,shares:12719675,pos:'SH'},
+      {name:'LIBERTY LIVE HOLDINGS INC',class:'COM SHS SER C',value:518319,shares:5507583,pos:'SH'},
+      {name:'NUCOR CORP',class:'COM',value:660686,shares:3907075,pos:'SH'},
+      {name:'LOUISIANA PAC CORP',class:'COM',value:316092,shares:4344909,pos:'SH'},
+      {name:'LIBERTY LIVE HOLDINGS INC',class:'COM SER A',value:301017,shares:3284775,pos:'SH'},
+      {name:'CONSTELLATION BRANDS INC',class:'CL A',value:94934,shares:632890,pos:'SH'},
+      {name:'NVR INC',class:'COM',value:73226,shares:11112,pos:'SH'},
+    ]},
+  { id:'soros', name:'George Soros', fund:'Soros Fund Management', period:'Q1 2026', filingDate:'2026-05-15',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1029160&type=13F-HR',
+    holdings:[
+      {name:'AMAZON COM INC',class:'COM',value:405249,shares:1945789,pos:'SH'},
+      {name:'COREWEAVE INC',class:'COM CL A',value:220022,shares:2840100,pos:'SH'},
+      {name:'GLOBAL PMTS INC',class:'NOTE',value:218206,shares:247500000,pos:'PRN'},
+      {name:'ELECTRONIC ARTS INC',class:'COM',value:196896,shares:965793,pos:'SH'},
+      {name:'BILL HOLDINGS INC',class:'NOTE',value:186562,shares:209679000,pos:'PRN'},
+      {name:'ALPHABET INC',class:'CAP STK CL A',value:165039,shares:573929,pos:'SH'},
+      {name:'JAZZ INVESTMENTS NOTE',class:'NOTE',value:158441,shares:130399000,pos:'PRN'},
+      {name:'APPLE INC',class:'COM',value:127030,shares:500534,pos:'SH'},
+      {name:'DEXCOM INC',class:'NOTE',value:98239,shares:103500000,pos:'PRN'},
+      {name:'CHART INDS INC',class:'COM',value:97192,shares:470095,pos:'SH'},
+      {name:'BLACKLINE INC',class:'NOTE',value:94857,shares:101000000,pos:'PRN'},
+      {name:'AMICUS THERAPEUTIC',class:'COM',value:83191,shares:5753186,pos:'SH'},
+      {name:'IDACORP INC',class:'COM',value:82535,shares:577290,pos:'SH'},
+      {name:'HONEYWELL INTL INC',class:'COM',value:80930,shares:358052,pos:'SH'},
+      {name:'CMS ENERGY CORP',class:'COM',value:80248,shares:1034397,pos:'SH'},
+      {name:'HOLOGIC INC',class:'COM',value:76614,shares:1013552,pos:'SH'},
+      {name:'H2O AMERICA',class:'COM',value:72090,shares:1228747,pos:'SH'},
+      {name:'ITRON INC',class:'COM',value:69672,shares:777335,pos:'SH'},
+      {name:'CLEARWATER ANALYTICS HLDGS',class:'CL A',value:69564,shares:2941405,pos:'SH'},
+      {name:'BERKSHIRE HATHAWAY INC',class:'CL B NEW',value:63866,shares:133277,pos:'SH'},
+      {name:'DROPBOX INC',class:'NOTE',value:58165,shares:62977000,pos:'PRN'},
+      {name:'COREBRIDGE FINL INC',class:'COM',value:50908,shares:2133647,pos:'SH'},
+      {name:'BRIGHTHOUSE FINL INC',class:'COM',value:50706,shares:846794,pos:'SH'},
+      {name:'BROADCOM INC',class:'COM',value:48007,shares:155107,pos:'SH'},
+      {name:'INTERACTIVE BROKERS GROUP',class:'COM CL A',value:43283,shares:645344,pos:'SH'},
+    ]},
+  { id:'icahn', name:'Carl Icahn', fund:'Icahn Capital (N/A)', period:'Χωρίς 13F', filingDate:null,
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1412093&type=13F-HR',
+    noData:true, noDataMsg:'Ο Carl Icahn σταμάτησε να καταθέτει 13F από το 2011 — επενδύει μέσω της εισηγμένης Icahn Enterprises LP (IEP).', noDataMsgEn:'Carl Icahn stopped filing 13F in 2011 — he invests through the publicly traded Icahn Enterprises LP (IEP).', holdings:[]},
+  { id:'dalio', name:'Ray Dalio', fund:'Bridgewater Associates', period:'Q1 2026', filingDate:'2026-05-15',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1350694&type=13F-HR',
+    noData:true, noDataMsg:'Το 13F της Bridgewater έχει ~980 θέσεις (600KB). Δες το στο <a href="https://whalewisdom.com/filer/bridgewater-associates-lp" target="_blank" style="color:var(--accent)">WisdomWale ↗</a>.', noDataMsgEn:'Bridgewater\'s 13F has ~980 positions (600KB). View at <a href="https://whalewisdom.com/filer/bridgewater-associates-lp" target="_blank" style="color:var(--accent)">WisdomWale ↗</a>.', holdings:[]},
+  { id:'tudor', name:'Paul Tudor Jones', fund:'Tudor Investment Corp', period:'Q1 2026', filingDate:'2026-05-15',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=923093&type=13F-HR',
+    noData:true, noDataMsg:'Το 13F της Tudor έχει ~500+ θέσεις (1.8MB). Δες στο <a href="https://whalewisdom.com/filer/tudor-investment-corp-et-al" target="_blank" style="color:var(--accent)">WisdomWale ↗</a>.', noDataMsgEn:'Tudor\'s 13F has ~500+ positions (1.8MB). View at <a href="https://whalewisdom.com/filer/tudor-investment-corp-et-al" target="_blank" style="color:var(--accent)">WisdomWale ↗</a>.', holdings:[]},
+  { id:'millennium', name:'Israel Englander', fund:'Millennium Management', period:'Q1 2026', filingDate:'2026-05-15',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1273087&type=13F-HR',
+    noData:true, noDataMsg:'Η Millennium έχει ~1.500+ θέσεις (3MB). Δες στο <a href="https://whalewisdom.com/filer/millennium-management-llc" target="_blank" style="color:var(--accent)">WisdomWale ↗</a>.', noDataMsgEn:'Millennium has ~1,500+ positions (3MB). View at <a href="https://whalewisdom.com/filer/millennium-management-llc" target="_blank" style="color:var(--accent)">WisdomWale ↗</a>.', holdings:[]},
+  { id:'citadel', name:'Ken Griffin', fund:'Citadel Advisors', period:'Q4 2025', filingDate:'2026-02-17',
+    edgarUrl:'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1423053&type=13F-HR',
+    noData:true, noDataMsg:'Η Citadel έχει ~5.000+ θέσεις (7.7MB). Δες στο <a href="https://whalewisdom.com/filer/citadel-advisors-llc" target="_blank" style="color:var(--accent)">WisdomWale ↗</a>.', noDataMsgEn:'Citadel has ~5,000+ positions (7.7MB). View at <a href="https://whalewisdom.com/filer/citadel-advisors-llc" target="_blank" style="color:var(--accent)">WisdomWale ↗</a>.', holdings:[]},
+];
+
+// ═══════════════════════════════════
+// 13F STATE & RENDER
+// ═══════════════════════════════════
+let activeInvestor=null, sortCol='value', sortDir=-1, searchTerm='';
+
+const grid=document.getElementById('inv-grid');
+INVESTORS.forEach(inv=>{
+  const card=document.createElement('div');
+  card.className='inv-card';
+  card.innerHTML=`<div class="inv-name">${inv.name}</div><div class="inv-fund">${inv.fund}</div><div class="inv-period">${inv.period}</div>`;
+  card.addEventListener('click',()=>{ document.querySelectorAll('.inv-card').forEach(c=>c.classList.remove('active')); card.classList.add('active'); selectInvestor(inv); });
+  grid.appendChild(card);
+});
+
+function selectInvestor(inv){
+  activeInvestor=inv; searchTerm=''; document.getElementById('search-input').value=''; sortCol='value'; sortDir=-1;
+  const msg=currentLang==='en'&&inv.noDataMsgEn?inv.noDataMsgEn:inv.noDataMsg;
+  if(inv.noData){
+    document.getElementById('empty-state').style.display='block';
+    document.getElementById('empty-state').innerHTML=`<div class="icon">⚠️</div><div style="font-weight:700;color:var(--text2);margin-bottom:6px">${t('noDataTitle')}</div><div>${msg||''}</div><a href="${inv.edgarUrl}" target="_blank" style="display:inline-block;margin-top:10px;color:var(--accent);font-size:0.8rem;text-decoration:none;font-weight:600">${t('openEdgar')}</a>`;
+    document.getElementById('holdings-view').style.display='none'; return;
+  }
+  const total=inv.holdings.reduce((s,h)=>s+h.value,0);
+  const tm=total/1000;
+  const ts=tm>=1000?`$${(tm/1000).toFixed(1)}B`:`$${tm.toFixed(0)}M`;
+  document.getElementById('info-bar').innerHTML=`<span class="pill">👤 <strong>${inv.name}</strong></span><span class="pill">📅 ${t('infoPeriod')}: <strong>${inv.period}</strong></span><span class="pill">📊 ${t('infoPositions')}: <strong>${inv.holdings.length}</strong></span><span class="pill">💰 ${t('infoValue')}: <strong>${ts}</strong></span><a href="${inv.edgarUrl}" target="_blank">SEC EDGAR ↗</a>`;
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('holdings-view').style.display='block';
+  renderTable();
+}
+
+function renderTable(){
+  if(!activeInvestor) return;
+  const holdings=activeInvestor.holdings;
+  const total=holdings.reduce((s,h)=>s+h.value,0);
+  let filtered=holdings.filter(h=>!searchTerm||h.name.toLowerCase().includes(searchTerm));
+  filtered=[...filtered].sort((a,b)=>{
+    const va=a[sortCol==='value'?'value':sortCol==='shares'?'shares':'name'];
+    const vb=b[sortCol==='value'?'value':sortCol==='shares'?'shares':'name'];
+    if(typeof va==='number') return sortDir*(vb-va);
+    return sortDir*String(va).localeCompare(String(vb));
+  });
+  document.getElementById('count-label').textContent=`${filtered.length} ${t('records')}`;
+  const tbody=document.getElementById('holdings-body');
+  tbody.innerHTML='';
+  filtered.forEach((h,i)=>{
+    const pct=((h.value/total)*100).toFixed(1);
+    const pc=h.pos==='Put'?'badge-put':h.pos==='Call'?'badge-call':h.pos==='PRN'?'badge-other':'badge-sh';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--text4);font-size:0.75rem">${i+1}</td><td style="font-weight:600">${h.name}</td><td style="font-size:0.75rem;color:var(--text3)">${h.class}</td><td class="num">$${h.value.toLocaleString()}</td><td class="num">${h.shares.toLocaleString()}</td><td class="num"><div style="display:flex;align-items:center;gap:6px;justify-content:flex-end"><div style="width:${Math.min(parseFloat(pct)*2,60)}px;height:4px;background:var(--accent);border-radius:2px;opacity:0.6"></div><span>${pct}%</span></div></td><td><span class="badge ${pc}">${h.pos}</span></td>`;
+    tbody.appendChild(tr);
+  });
+  document.querySelectorAll('th[data-col]').forEach(th=>{ th.classList.remove('sorted'); if(th.dataset.col===sortCol) th.classList.add('sorted'); });
+}
+document.querySelectorAll('th[data-col]').forEach(th=>th.addEventListener('click',()=>{ if(sortCol===th.dataset.col) sortDir*=-1; else{sortCol=th.dataset.col;sortDir=-1;} renderTable(); }));
+document.getElementById('search-input').addEventListener('input',e=>{ searchTerm=e.target.value.toLowerCase(); renderTable(); });
+
+// ═══════════════════════════════════
+// PERFORMANCE DATA
+// ═══════════════════════════════════
+const COMMON_HOLDINGS = [
+  { ticker:'GOOGL', name:'Alphabet', q1Price:287.00, nowPrice:368.53, consensusCount:4,
+    investors:[{name:'Ackman',value:'$89M',put:false},{name:'Buffett',value:'$11.9B',put:false},{name:'Soros',value:'$165M',put:false},{name:'Tepper',value:'$497M',put:false}], note:null },
+  { ticker:'AMZN', name:'Amazon', q1Price:208.27, nowPrice:246.03, consensusCount:4,
+    investors:[{name:'Ackman',value:'$2.4B',put:false},{name:'Druckenmiller',value:'$9.5M',put:false},{name:'Soros',value:'$405M',put:false},{name:'Tepper',value:'$900M',put:false}], note:null },
+  { ticker:'AAPL', name:'Apple', q1Price:253.79, nowPrice:311.00, consensusCount:2,
+    investors:[{name:'Buffett',value:'$20.5B',put:false},{name:'Soros',value:'$127M',put:false}], note:null },
+  { ticker:'NVDA', name:'NVIDIA', q1Price:174.40, nowPrice:209.00, consensusCount:2,
+    investors:[{name:'Burry',value:'$187M',put:true},{name:'Tepper',value:'$257M',put:false}], note:'Burry: PUT (bearish) · Tepper: Long' },
+  { ticker:'MSFT', name:'Microsoft', q1Price:370.17, nowPrice:416.67, consensusCount:2,
+    investors:[{name:'Ackman',value:'$2.1B',put:false},{name:'Tepper',value:'$33M',put:false}], note:null },
+  { ticker:'META', name:'Meta Platforms', q1Price:572.13, nowPrice:593.06, consensusCount:2,
+    investors:[{name:'Ackman',value:'$1.5B',put:false},{name:'Tepper',value:'$250M',put:false}], note:null },
+  { ticker:'UBER', name:'Uber Technologies', q1Price:71.93, nowPrice:70.71, consensusCount:2,
+    investors:[{name:'Ackman',value:'$2.2B',put:false},{name:'Tepper',value:'$456M',put:false}], note:null },
+  { ticker:'TSM', name:'Taiwan Semiconductor', q1Price:337.95, nowPrice:326.74, consensusCount:2,
+    investors:[{name:'Druckenmiller',value:'$167M',put:false},{name:'Tepper',value:'$449M',put:false}], note:null },
+  { ticker:'AVGO', name:'Broadcom', q1Price:309.50, nowPrice:243.00, consensusCount:2,
+    investors:[{name:'Druckenmiller',value:'$61M',put:false},{name:'Soros',value:'$48M',put:false}], note:null },
+  { ticker:'MU', name:'Micron Technology', q1Price:94.80, nowPrice:110.00, consensusCount:2,
+    investors:[{name:'Druckenmiller',value:'$7.9M',put:false},{name:'Tepper',value:'$563M',put:false}], note:null },
+  { ticker:'QSR', name:'Restaurant Brands', q1Price:73.90, nowPrice:72.66, consensusCount:2,
+    investors:[{name:'Ackman',value:'$1.7B',put:false},{name:'Druckenmiller',value:'$34M',put:false}], note:null },
+];
+
+// ═══════════════════════════════════
+// LIVE PRICE FETCH
+// ═══════════════════════════════════
+async function fetchLivePrices() {
+  const btn=document.getElementById('refresh-btn');
+  const icon=document.getElementById('refresh-icon');
+  const lbl=document.getElementById('last-updated-label');
+  btn.disabled=true;
+  icon.textContent='⏳'; icon.classList.add('spin');
+  lbl.textContent=t('refreshing');
+
+  const symbols=COMMON_HOLDINGS.map(s=>s.ticker).join(',');
+  const url=`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=regularMarketPrice`;
+  const proxy=`https://corsproxy.io/?${encodeURIComponent(url)}`;
+
+  let success=false;
+  // Try direct first, then proxy
+  for (const endpoint of [url, proxy]) {
+    try {
+      const res=await fetch(endpoint, {headers:{'Accept':'application/json'}});
+      if(!res.ok) continue;
+      const data=await res.json();
+      const quotes=data?.quoteResponse?.result||[];
+      if(quotes.length===0) continue;
+      quotes.forEach(q=>{
+        const h=COMMON_HOLDINGS.find(s=>s.ticker===q.symbol);
+        if(h&&q.regularMarketPrice) h.nowPrice=q.regularMarketPrice;
+      });
+      success=true;
+      break;
+    } catch(e) { continue; }
+  }
+
+  icon.classList.remove('spin');
+  icon.textContent='🔄';
+  btn.disabled=false;
+  if(success){
+    const now=new Date();
+    lbl.textContent=`${t('refreshOk')} ${now.toLocaleTimeString()}`;
+    lbl.style.color='var(--text3)';
+  } else {
+    lbl.textContent=t('refreshErr');
+    lbl.style.color='#ef4444';
+  }
+  renderPerformance();
+}
+
+function renderPerfCard(s) {
+  const chg=((s.nowPrice-s.q1Price)/s.q1Price)*100;
+  const isUp=chg>=0;
+  const bar=Math.min(Math.abs(chg)*3,100);
+  const barColor=isUp?'#22c55e':'#ef4444';
+  const pills=s.investors.map(inv=>`<span class="perf-inv-pill${inv.put?' put':''}">${inv.name}${inv.put?' PUT⚠️':''} <span style="opacity:0.65">${inv.value}</span></span>`).join('');
+  return `<div class="perf-card">
+    <div class="perf-card-header">
+      <div><div class="perf-ticker">${s.ticker}</div><div class="perf-name">${s.name}</div></div>
+      <div class="perf-change ${isUp?'perf-up':'perf-down'}">${isUp?'▲':'▼'} ${Math.abs(chg).toFixed(1)}%</div>
+    </div>
+    <div class="perf-prices">
+      <div class="perf-price-box"><div class="perf-price-label">${t('perfQ1')}</div><div class="perf-price-val" style="color:var(--text3)">$${s.q1Price.toFixed(2)}</div></div>
+      <div class="perf-price-box"><div class="perf-price-label">${t('perfNow')}</div><div class="perf-price-val" style="color:${isUp?'#16a34a':'#dc2626'}">$${s.nowPrice.toFixed(2)}</div></div>
+    </div>
+    <div class="perf-bar-wrap"><div class="perf-bar-fill" style="width:${bar}%;background:${barColor}"></div></div>
+    <div class="perf-investors">${pills}</div>
+    ${s.note?`<div class="perf-note">⚠️ ${s.note}</div>`:''}
+  </div>`;
+}
+
+function renderPerformance(){
+  document.getElementById('perf-grid-4').innerHTML=COMMON_HOLDINGS.filter(s=>s.consensusCount===4).map(renderPerfCard).join('');
+  document.getElementById('perf-grid-2').innerHTML=COMMON_HOLDINGS.filter(s=>s.consensusCount===2).map(renderPerfCard).join('');
+}
+
+renderPerformance();
+
+// ═══════════════════════════════════
+// REAL-TIME INSIDER DATA (Dataroma)
+// ═══════════════════════════════════
+const RT_DATA = [
+  // MAVERICK CAPITAL — Infleqtion Inc sells (May 2026) — consolidated by day
+  {date:'2026-05-29',filing:'29 May 20:56',fund:'Maverick Capital Ltd',security:'Infleqtion Inc',action:'Sell',shares:1796637,price:16.22,total:29139644,amendment:false},
+  {date:'2026-05-27',filing:'29 May 21:36A',fund:'Maverick Capital Ltd',security:'Infleqtion Inc',action:'Sell',shares:3071623,price:15.57,total:47838938,amendment:true},
+  {date:'2026-05-22',filing:'26 May 18:57',fund:'Maverick Capital Ltd',security:'Infleqtion Inc',action:'Sell',shares:5323111,price:16.74,total:89090059,amendment:false},
+  {date:'2026-05-21',filing:'26 May 18:57',fund:'Maverick Capital Ltd',security:'Infleqtion Inc',action:'Sell',shares:6584521,price:14.69,total:96777026,amendment:false},
+  // BERKSHIRE — DaVita sell (May 2026)
+  {date:'2026-05-01',filing:'05 May 18:52',fund:'Berkshire Hathaway Inc',security:'DaVita Inc',action:'Sell',shares:1220376,price:149.84,total:182864679,amendment:false},
+  // COOPERMAN — Finance of America buy
+  {date:'2026-03-13',filing:'16 Mar 16:06',fund:'Cooperman Leon G',security:'Finance of America Companies Inc',action:'Buy',shares:28,price:16.10,total:451,amendment:false},
+  // ABRAMS — ContextLogic buy
+  {date:'2026-02-26',filing:'26 Feb 20:37',fund:'Abrams Capital Management LP',security:'ContextLogic Holdings Inc',action:'Buy',shares:1758794,price:7.00,total:12311558,amendment:false},
+  // ICAHN — CVR Energy buys
+  {date:'2026-02-24',filing:'24 Feb 17:26',fund:'Icahn Carl C',security:'CVR Energy Inc',action:'Buy',shares:275012,price:21.41,total:5888007,amendment:false},
+  {date:'2026-02-23',filing:'24 Feb 17:26',fund:'Icahn Carl C',security:'CVR Energy Inc',action:'Buy',shares:244940,price:20.75,total:5082505,amendment:false},
+  {date:'2026-02-20',filing:'24 Feb 17:26',fund:'Icahn Carl C',security:'CVR Energy Inc',action:'Buy',shares:263452,price:20.78,total:5474533,amendment:false},
+  // BERKSHIRE — Liberty Live Holdings sells (Jan 2026)
+  {date:'2026-01-16',filing:'17 Feb 16:49',fund:'Berkshire Hathaway Inc',security:'Liberty Live Holdings Inc',action:'Sell',shares:7685,price:83.72,total:643404,amendment:false},
+  {date:'2026-01-15',filing:'17 Feb 16:49',fund:'Berkshire Hathaway Inc',security:'Liberty Live Holdings Inc',action:'Sell',shares:18125,price:84.04,total:1523201,amendment:false},
+  {date:'2026-01-14',filing:'17 Feb 16:49',fund:'Berkshire Hathaway Inc',security:'Liberty Live Holdings Inc',action:'Sell',shares:59411,price:83.79,total:4978101,amendment:false},
+  {date:'2026-01-13',filing:'17 Feb 16:49',fund:'Berkshire Hathaway Inc',security:'Liberty Live Holdings Inc',action:'Sell',shares:30643,price:82.78,total:2536502,amendment:false},
+  {date:'2026-01-12',filing:'17 Feb 16:49',fund:'Berkshire Hathaway Inc',security:'Liberty Live Holdings Inc',action:'Sell',shares:66568,price:83.27,total:5543424,amendment:false},
+  {date:'2026-01-09',filing:'17 Feb 16:49',fund:'Berkshire Hathaway Inc',security:'Liberty Live Holdings Inc',action:'Sell',shares:18689,price:82.40,total:1539884,amendment:false},
+  {date:'2026-01-08',filing:'17 Feb 16:49',fund:'Berkshire Hathaway Inc',security:'Liberty Live Holdings Inc',action:'Sell',shares:65071,price:82.25,total:5352018,amendment:false},
+  {date:'2026-01-07',filing:'17 Feb 16:49',fund:'Berkshire Hathaway Inc',security:'Liberty Live Holdings Inc',action:'Sell',shares:44100,price:81.22,total:3581952,amendment:false},
+  {date:'2026-01-06',filing:'17 Feb 16:49',fund:'Berkshire Hathaway Inc',security:'Liberty Live Holdings Inc',action:'Sell',shares:20226,price:83.48,total:1688501,amendment:false},
+  // BERKSHIRE — DaVita sell (Jan 2026)
+  {date:'2026-01-29',filing:'02 Feb 17:30',fund:'Berkshire Hathaway Inc',security:'DaVita Inc',action:'Sell',shares:1658480,price:120.56,total:199939881,amendment:false},
+  // TIGER GLOBAL — Wealthfront sell
+  {date:'2025-12-15',filing:'16 Dec 16:05',fund:'Tiger Global Management LLC',security:'Wealthfront Corp',action:'Sell',shares:7004912,price:14.00,total:98068768,amendment:false},
+];
+
+let rtSearch='', rtFilter='all';
+
+function fmtMoney(n){
+  if(n>=1e9) return `$${(n/1e9).toFixed(2)}B`;
+  if(n>=1e6) return `$${(n/1e6).toFixed(1)}M`;
+  if(n>=1e3) return `$${(n/1e3).toFixed(0)}K`;
+  return `$${n}`;
+}
+
+function renderRTSummary(){
+  const buys=RT_DATA.filter(r=>r.action==='Buy');
+  const sells=RT_DATA.filter(r=>r.action==='Sell');
+  const totalVol=RT_DATA.reduce((s,r)=>s+r.total,0);
+  const funds=[...new Set(RT_DATA.map(r=>r.fund))].length;
+  const cards=[
+    {label:t('rtSummBuys'), value:buys.length, color:'#22c55e', icon:'📈'},
+    {label:t('rtSummSells'), value:sells.length, color:'#ef4444', icon:'📉'},
+    {label:t('rtSummFunds'), value:funds, color:'var(--accent)', icon:'🏦'},
+    {label:t('rtSummVol'), value:fmtMoney(totalVol), color:'var(--text2)', icon:'💰'},
+  ];
+  document.getElementById('rt-summary').innerHTML=cards.map(c=>`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px">
+      <div style="font-size:1.5rem">${c.icon}</div>
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;color:${c.color}">${c.value}</div>
+        <div style="font-size:0.72rem;color:var(--text4)">${c.label}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderRTTable(){
+  let rows=RT_DATA.filter(r=>{
+    const q=rtSearch.toLowerCase();
+    const matchQ=!q||r.fund.toLowerCase().includes(q)||r.security.toLowerCase().includes(q);
+    const matchF=rtFilter==='all'||r.action===rtFilter;
+    return matchQ&&matchF;
+  });
+  document.getElementById('rt-count').textContent=`${rows.length} ${t('records')}`;
+  const tbody=document.getElementById('rt-body');
+  tbody.innerHTML='';
+  rows.forEach(r=>{
+    const isBuy=r.action==='Buy';
+    const badgeCls=isBuy?'badge-call':'badge-put';
+    const badgeLabel=isBuy?(currentLang==='el'?'Αγορά':'Buy'):(currentLang==='el'?'Πώληση':'Sell');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td style="font-size:0.78rem;white-space:nowrap;color:var(--text3)">${r.date}</td>
+      <td style="font-weight:600;font-size:0.8rem">${r.fund}${r.amendment?' <span style="font-size:0.65rem;color:var(--text4)">(A)</span>':''}</td>
+      <td style="font-size:0.8rem">${r.security}</td>
+      <td><span class="badge ${badgeCls}">${badgeLabel}</span></td>
+      <td class="num">${r.shares.toLocaleString()}</td>
+      <td class="num">$${r.price.toFixed(2)}</td>
+      <td class="num" style="font-weight:600">${fmtMoney(r.total)}</td>
+      <td style="font-size:0.72rem;color:var(--text4)">${r.filing}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderRT(){
+  renderRTSummary();
+  renderRTTable();
+}
+renderRT();
+
+document.getElementById('rt-search').addEventListener('input',e=>{rtSearch=e.target.value;renderRTTable();});
+document.getElementById('rt-filter-action').addEventListener('change',e=>{rtFilter=e.target.value;renderRTTable();});
+
+// ═══════════════════════════════════
+// CONGRESS DATA FOR SCORING
+// ═══════════════════════════════════
+const CONGRESS_SIGNALS = {
+  'NVIDIA CORPORATION':       {member:'Nancy Pelosi', action:'Buy',  amount:750000},
+  'LOCKHEED MARTIN':          {member:'Dan Crenshaw', action:'Buy',  amount:32000},
+  'FORD MOTOR':               {member:'Tommy Tuberville', action:'Sell', amount:8000},
+  'AMAZON COM INC':           {member:'Josh Gottheimer', action:'Buy',  amount:32000},
+  'MICROSOFT CORP':           {member:'Ro Khanna',   action:'Sell', amount:75000},
+};
+
+// RT insider signals (normalize stock names → match 13F)
+const RT_SIGNALS = {
+  'DAVITA INC':               {fund:'Berkshire Hathaway', action:'Sell', total:382804560},
+  'CVR ENERGY INC':           {fund:'Carl Icahn',         action:'Buy',  total:16445045},
+  'WEALTHFRONT CORP':         {fund:'Tiger Global',       action:'Sell', total:98068768},
+  'INFLEQTION INC':           {fund:'Maverick Capital',   action:'Sell', total:262700000},
+  'CONTEXTLOGIC HOLDINGS INC':{fund:'Abrams Capital',     action:'Buy',  total:12311558},
+  'LIBERTY LIVE HOLDINGS INC':{fund:'Berkshire Hathaway', action:'Sell', total:25386987},
+};
+
+// ═══════════════════════════════════
+// SMART MONEY SCORE ENGINE
+// ═══════════════════════════════════
+let scoreSearch = '', scoreFilter = 'all';
+
+function computeScores() {
+  const stockMap = {};
+
+  // Aggregate from all 13F investors
+  INVESTORS.filter(inv => !inv.noData).forEach(inv => {
+    const invTotal = inv.holdings.reduce((s, h) => s + h.value, 0);
+    inv.holdings.forEach(h => {
+      const key = h.name.toUpperCase();
+      if (!stockMap[key]) stockMap[key] = {name: h.name, investors: [], totalValue: 0, positions: []};
+      const pct = invTotal > 0 ? (h.value / invTotal) * 100 : 0;
+      stockMap[key].investors.push(inv.name);
+      stockMap[key].totalValue += h.value;
+      stockMap[key].positions.push({inv: inv.name, value: h.value, pct, pos: h.pos});
+    });
+  });
+
+  // Only keep stocks held by 2+ investors (more interesting)
+  const multiHolder = Object.values(stockMap).filter(s => s.investors.length >= 2);
+
+  const maxVal = Math.max(...multiHolder.map(s => s.totalValue));
+  const maxInv = Math.max(...multiHolder.map(s => s.investors.length));
+
+  const results = multiHolder.map(s => {
+    const nInv = s.investors.length;
+    const invScore  = (nInv / maxInv) * 35;
+    const valScore  = (s.totalValue / maxVal) * 35;
+
+    // Average portfolio concentration bonus
+    const avgPct = s.positions.reduce((a, p) => a + p.pct, 0) / s.positions.length;
+    const concScore = Math.min(avgPct / 20, 1) * 5;
+
+    // Put penalty
+    const putPenalty = s.positions.filter(p => p.pos === 'Put').length * 5;
+
+    // Insider RT signal
+    let rtSignal = null;
+    for (const [rtKey, rtVal] of Object.entries(RT_SIGNALS)) {
+      if (s.name.toUpperCase().includes(rtKey.split(' ')[0])) { rtSignal = rtVal; break; }
+    }
+    const rtScore = rtSignal ? (rtSignal.action === 'Buy' ? 15 : -10) : 0;
+
+    // Congress signal
+    let congSignal = null;
+    for (const [cKey, cVal] of Object.entries(CONGRESS_SIGNALS)) {
+      if (s.name.toUpperCase().includes(cKey.split(' ')[0])) { congSignal = cVal; break; }
+    }
+    const congScore = congSignal ? (congSignal.action === 'Buy' ? 10 : -7) : 0;
+
+    const raw = invScore + valScore + concScore + congScore + rtScore - putPenalty;
+    const score = Math.max(0, Math.min(100, raw));
+
+    return {...s, score: Math.round(score * 10) / 10, rtSignal, congSignal, avgPct, putPenalty};
+  });
+
+  results.sort((a, b) => b.score - a.score);
+  return results;
+}
+
+function scoreBadge(score) {
+  if (score >= 60) return {icon:'🔥', label:'Strong', cls:'perf-up'};
+  if (score >= 40) return {icon:'✅', label:'Moderate', cls:'', style:'background:#fef9c3;color:#92400e'};
+  if (score >= 20) return {icon:'⚠️', label:'Weak', cls:'', style:'background:#fff7ed;color:#c2410c'};
+  return {icon:'🔵', label:'Low', cls:'badge-sh', style:''};
+}
+
+function renderScoreCard(s, rank) {
+  const b = scoreBadge(s.score);
+  const badgeStyle = b.cls ? '' : `style="${b.style}"`;
+  const totalStr = fmtMoney(s.totalValue * 1000);
+  const invPills = [...new Set(s.investors)].map(n =>
+    `<span class="perf-inv-pill" style="font-size:0.66rem">${n.split(' ').slice(-1)[0]}</span>`
+  ).join('');
+
+  // Signals row
+  let signals = '';
+  if (s.rtSignal) {
+    const rtCls = s.rtSignal.action === 'Buy' ? 'badge-call' : 'badge-put';
+    signals += `<span class="badge ${rtCls}" style="font-size:0.67rem">🔔 ${s.rtSignal.fund}: ${s.rtSignal.action} (${fmtMoney(s.rtSignal.total)})</span> `;
+  }
+  if (s.congSignal) {
+    const cCls = s.congSignal.action === 'Buy' ? 'badge-call' : 'badge-put';
+    signals += `<span class="badge ${cCls}" style="font-size:0.67rem">🏛 ${s.congSignal.member}: ${s.congSignal.action}</span>`;
+  }
+  if (s.putPenalty > 0) {
+    signals += ` <span class="badge badge-put" style="font-size:0.67rem">⚠️ PUT θέσεις</span>`;
+  }
+
+  return `<div class="perf-card" style="border-left:4px solid ${s.score>=60?'#22c55e':s.score>=40?'#eab308':s.score>=20?'#f97316':'#94a3b8'}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+      <div>
+        <div style="font-size:0.7rem;color:var(--text4);margin-bottom:2px">#${rank}</div>
+        <div style="font-weight:800;font-size:1rem;color:var(--text)">${s.name}</div>
+        <div style="font-size:0.7rem;color:var(--text4);margin-top:1px">${[...new Set(s.investors)].length} investors · ${totalStr}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:1.4rem;font-weight:900;color:${s.score>=60?'#16a34a':s.score>=40?'#ca8a04':s.score>=20?'#ea580c':'#64748b'}">${s.score}</div>
+        <div style="font-size:0.68rem;font-weight:700">${b.icon} ${b.label}</div>
+      </div>
+    </div>
+    <div class="perf-bar-wrap" style="margin-bottom:8px">
+      <div class="perf-bar-fill" style="width:${s.score}%;background:${s.score>=60?'#22c55e':s.score>=40?'#eab308':s.score>=20?'#f97316':'#94a3b8'}"></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:${signals?'8px':'0'}">${invPills}</div>
+    ${signals ? `<div style="display:flex;flex-wrap:wrap;gap:4px">${signals}</div>` : ''}
+  </div>`;
+}
+
+function renderScore() {
+  const all = computeScores();
+  const q = scoreSearch.toLowerCase();
+  const filtered = all.filter(s => {
+    const matchQ = !q || s.name.toLowerCase().includes(q);
+    const matchF = scoreFilter === 'all'
+      || (scoreFilter === 'signal' && (s.rtSignal || s.congSignal))
+      || (scoreFilter === 'congress' && s.congSignal);
+    return matchQ && matchF;
+  });
+  document.getElementById('score-count').textContent = `${filtered.length} ${t('records')}`;
+  document.getElementById('score-grid').innerHTML = filtered.map((s, i) => renderScoreCard(s, i + 1)).join('');
+}
+
+document.getElementById('score-search').addEventListener('input', e => { scoreSearch = e.target.value; renderScore(); });
+document.getElementById('score-filter').addEventListener('change', e => { scoreFilter = e.target.value; renderScore(); });
+
+renderScore();
+
+// Restore saved language
+(function(){
+  const saved=localStorage.getItem('lang');
+  if(saved&&saved!==currentLang){ currentLang=saved; }
+  applyTranslations();
+})();
+</script>
+</body>
+</html>
