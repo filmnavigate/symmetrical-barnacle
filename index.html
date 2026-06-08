@@ -198,6 +198,8 @@ table.cong-tbl tr:hover td { background: var(--hover-bg); }
   <button class="tab-btn" data-tab="performance">📈 <span data-i18n="tabPerf">Κοινές Θέσεις</span></button>
   <button class="tab-btn" data-tab="realtime">🔔 <span data-i18n="tabRT">Real-Time Insider</span></button>
   <button class="tab-btn" data-tab="score">🎯 <span data-i18n="tabScore">Smart Score</span></button>
+  <button class="tab-btn" data-tab="fullpicture">🔭 <span data-i18n="tabFull">Full Picture</span></button>
+  <button class="tab-btn" data-tab="lookup">🔍 <span data-i18n="tabLookup">Αναζήτηση</span></button>
 </div>
 
 <!-- ══ 13F PANEL ══ -->
@@ -329,6 +331,43 @@ table.cong-tbl tr:hover td { background: var(--hover-bg); }
   <div id="score-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px"></div>
 </div>
 
+<!-- ══ LOOKUP PANEL ══ -->
+<div id="tab-lookup" class="panel">
+  <div class="note-box" style="margin-bottom:16px"><span data-i18n="lookupNote">🔍 Πληκτρολόγησε οποιοδήποτε ticker (π.χ. TSLA, BABA, BRK-B) για πλήρη ανάλυση. Απαιτεί σύνδεση στο internet.</span></div>
+  <div style="display:flex;gap:8px;margin-bottom:20px;max-width:420px">
+    <input type="text" id="lookup-input" placeholder="π.χ. TSLA, AAPL, NVDA..." style="flex:1;padding:10px 14px;border:2px solid var(--accent);border-radius:10px;font-size:1rem;background:var(--surface);color:var(--text);outline:none;text-transform:uppercase">
+    <button id="lookup-btn" onclick="doLookup()" style="padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;white-space:nowrap">
+      <span id="lookup-icon">🔍</span> <span data-i18n="lookupBtn">Ανάλυση</span>
+    </button>
+  </div>
+  <div id="lookup-result"></div>
+</div>
+
+<!-- ══ FULL PICTURE PANEL ══ -->
+<div id="tab-fullpicture" class="panel">
+  <div class="note-box" id="fp-note-box" style="margin-bottom:14px">
+    <span data-i18n="fpNote">🔭 Συνδυάζει Smart Money (13F+Insider+Congress) + Wall St. Analysts + Fundamentals + Technicals σε ένα ενοποιημένο score ανά μετοχή. Πάτα 🔄 πρώτα για να φορτωθούν τα live δεδομένα.</span>
+  </div>
+  <!-- Legend -->
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;font-size:0.75rem">
+    <span style="display:flex;align-items:center;gap:4px"><span style="background:#22c55e;width:10px;height:10px;border-radius:50%;display:inline-block"></span><span data-i18n="fpLegConsensus">Consensus bullish</span></span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="background:#f97316;width:10px;height:10px;border-radius:50%;display:inline-block"></span><span data-i18n="fpLegMixed">Μεικτά σήματα</span></span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="background:#ef4444;width:10px;height:10px;border-radius:50%;display:inline-block"></span><span data-i18n="fpLegConflict">Conflict: Smart Money vs Analysts</span></span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="background:#94a3b8;width:10px;height:10px;border-radius:50%;display:inline-block"></span><span data-i18n="fpLegNoData">Χωρίς analyst δεδομένα</span></span>
+  </div>
+  <div class="search-row" style="margin-bottom:14px">
+    <input type="text" id="fp-search" data-i18n-placeholder="searchPlaceholder" placeholder="🔍 Αναζήτηση...">
+    <select id="fp-filter" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:0.82rem;background:var(--surface);color:var(--text);outline:none">
+      <option value="all" data-i18n="rtAll">Όλες</option>
+      <option value="consensus" data-i18n="fpFilterConsensus">Consensus bullish</option>
+      <option value="conflict" data-i18n="fpFilterConflict">Conflict</option>
+      <option value="analyst" data-i18n="fpFilterAnalyst">Με analyst δεδομένα</option>
+    </select>
+    <span class="count-label" id="fp-count"></span>
+  </div>
+  <div id="fp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px"></div>
+</div>
+
 <!-- ══ CONGRESS PANEL ══ -->
 <div id="tab-congress" class="panel">
   <div class="note-box" data-i18n="congressNote">
@@ -437,6 +476,21 @@ const TR = {
     scoreHasSignal: 'Με signal', scoreHasCongress: 'Congress signal',
     scoreInvestors: 'Επενδυτές', scoreInsider: 'Insider', scoreCongress: 'Congress',
     scoreTotalVal: 'Συνολική αξία', scorePut: 'Bearish θέση',
+    tabLookup: 'Αναζήτηση',
+    lookupNote: '🔍 Πληκτρολόγησε οποιοδήποτε ticker (π.χ. TSLA, BABA, BRK-B) για πλήρη ανάλυση. Απαιτεί σύνδεση στο internet.',
+    lookupBtn: 'Ανάλυση', lookupLoading: '⏳ Αναζήτηση δεδομένων...', lookupNotFound: '❌ Δεν βρέθηκε η μετοχή. Έλεγξε το ticker.', lookupNoNet: '⚠️ Δεν υπάρχει σύνδεση — απαιτείται internet.',
+    lookupSmMoney: 'Smart Money (13F)', lookupNoSm: 'Κανείς από τους 11 επενδυτές δεν κρατά αυτή τη μετοχή.', lookupHolds: 'κρατά',
+    tabFull: 'Full Picture',
+    fpNote: '🔭 Συνδυάζει Smart Money (13F+Insider+Congress) + Wall St. Analysts + Fundamentals + Technicals σε ένα ενοποιημένο score ανά μετοχή. Πάτα 🔄 πρώτα για να φορτωθούν τα live δεδομένα.',
+    fpLegConsensus: 'Consensus bullish', fpLegMixed: 'Μεικτά σήματα',
+    fpLegConflict: 'Conflict: Smart Money vs Analysts', fpLegNoData: 'Χωρίς analyst δεδομένα',
+    fpFilterConsensus: 'Consensus bullish', fpFilterConflict: 'Conflict', fpFilterAnalyst: 'Με analyst δεδομένα',
+    fpSmartMoney: 'Smart Money', fpAnalysts: 'Analysts', fpFundamentals: 'Fundamentals', fpTechnicals: 'Technicals',
+    fpFinalScore: 'Τελικό Score', fpUpside: 'Upside vs target',
+    fpRating: 'Rating', fpTarget: 'Price target', fpAnalystCount: 'Analysts',
+    fpPE: 'Forward P/E', fpPB: 'P/Book', fpGrowth: 'EPS Growth',
+    fp52w: '52-εβδ. θέση', fpNoAnalyst: 'Δεν υπάρχουν analyst δεδομένα — πάτα 🔄',
+    fpConflictLabel: '⚡ Conflict', fpConsensusLabel: '✅ Consensus',
     'ct-desc': 'Η καλύτερη πλατφόρμα. Αναζήτηση ανά politician, ticker, ημερομηνία.',
     'qq-desc': 'Live Congress trades, House & Senate.',
     'ssw-desc': 'Αποκλειστικά Γερουσία. Δωρεάν, ιστορικά από 2012.',
@@ -479,6 +533,21 @@ const TR = {
     scoreHasSignal: 'With signal', scoreHasCongress: 'Congress signal',
     scoreInvestors: 'Investors', scoreInsider: 'Insider', scoreCongress: 'Congress',
     scoreTotalVal: 'Total value', scorePut: 'Bearish position',
+    tabLookup: 'Search',
+    lookupNote: '🔍 Type any ticker (e.g. TSLA, BABA, BRK-B) for a full analysis. Requires internet connection.',
+    lookupBtn: 'Analyze', lookupLoading: '⏳ Fetching data...', lookupNotFound: '❌ Ticker not found. Check the symbol.', lookupNoNet: '⚠️ No connection — internet required.',
+    lookupSmMoney: 'Smart Money (13F)', lookupNoSm: 'None of the 11 investors hold this stock.', lookupHolds: 'holds',
+    tabFull: 'Full Picture',
+    fpNote: '🔭 Combines Smart Money (13F+Insider+Congress) + Wall St. Analysts + Fundamentals + Technicals into a unified score per stock. Press 🔄 first to load live data.',
+    fpLegConsensus: 'Consensus bullish', fpLegMixed: 'Mixed signals',
+    fpLegConflict: 'Conflict: Smart Money vs Analysts', fpLegNoData: 'No analyst data',
+    fpFilterConsensus: 'Consensus bullish', fpFilterConflict: 'Conflict', fpFilterAnalyst: 'With analyst data',
+    fpSmartMoney: 'Smart Money', fpAnalysts: 'Analysts', fpFundamentals: 'Fundamentals', fpTechnicals: 'Technicals',
+    fpFinalScore: 'Final Score', fpUpside: 'Upside vs target',
+    fpRating: 'Rating', fpTarget: 'Price target', fpAnalystCount: 'Analysts',
+    fpPE: 'Forward P/E', fpPB: 'P/Book', fpGrowth: 'EPS Growth',
+    fp52w: '52-week position', fpNoAnalyst: 'No analyst data — press 🔄',
+    fpConflictLabel: '⚡ Conflict', fpConsensusLabel: '✅ Consensus',
     'ct-desc': 'Best platform. Search by politician, ticker, date.',
     'qq-desc': 'Live Congress trades, House & Senate.',
     'ssw-desc': 'Senate only. Free, historical data from 2012.',
@@ -570,10 +639,40 @@ const HELP_CONTENT = {
     </div>
     <div class="help-divider"></div>
     <div class="help-section">
+      <h3>🔍 Tab 6 — Αναζήτηση Μετοχής</h3>
+      <ul>
+        <li>Πληκτρολόγησε οποιοδήποτε <strong>ticker</strong> (π.χ. TSLA, BABA, BRK-B) και πάτα Enter ή το κουμπί Ανάλυση.</li>
+        <li>Επιστρέφει: τρέχουσα τιμή, analyst rating, price target, upside/downside, P/E, P/B, EPS growth, 52-εβδομαδιαία θέση, Smart Money overlap, και τελικό Full Picture score.</li>
+        <li><strong>Smart Money overlap</strong>: ψάχνει αν κάποιος από τους 11 επενδυτές κρατά τη μετοχή βάσει των 13F δεδομένων.</li>
+        <li>Απαιτεί σύνδεση στο internet.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🔭 Tab 7 — Full Picture</h3>
+      <ul>
+        <li>Ενοποιεί <strong>4 ανεξάρτητες πηγές</strong> σε ένα τελικό score (0–100) ανά μετοχή:</li>
+      </ul>
+      <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:4px 0 8px">
+        <tr style="background:var(--surface2)"><th style="padding:4px 8px;text-align:left">Πηγή</th><th style="padding:4px 8px;text-align:right">Βάρος</th><th style="padding:4px 8px;text-align:left">Προέλευση</th></tr>
+        <tr><td style="padding:4px 8px">🐋 Smart Money</td><td style="padding:4px 8px;text-align:right">40%</td><td style="padding:4px 8px">13F + Insider + Congress</td></tr>
+        <tr style="background:var(--surface2)"><td style="padding:4px 8px">📊 Wall St. Analysts</td><td style="padding:4px 8px;text-align:right">30%</td><td style="padding:4px 8px">Yahoo Finance recommendation</td></tr>
+        <tr><td style="padding:4px 8px">💼 Fundamentals</td><td style="padding:4px 8px;text-align:right">15%</td><td style="padding:4px 8px">P/E, P/B, EPS growth</td></tr>
+        <tr style="background:var(--surface2)"><td style="padding:4px 8px">📈 Technicals</td><td style="padding:4px 8px;text-align:right">15%</td><td style="padding:4px 8px">Θέση στο 52-εβδομαδιαίο range</td></tr>
+      </table>
+      <ul>
+        <li><span style="color:#16a34a;font-weight:700">✅ Consensus bullish</span> = Smart Money και Analysts συμφωνούν. Ισχυρότερο σήμα.</li>
+        <li><span style="color:#dc2626;font-weight:700">⚡ Conflict</span> = Smart Money bullish αλλά Analysts bearish (ή αντίστροφα) — ενδιαφέρον contrarian signal.</li>
+        <li><span style="color:#d97706;font-weight:700">〰️ Μεικτά</span> = Μερική συμφωνία.</li>
+        <li>Πάτα <span class="help-kbd">🔄 Ανανέωση τιμών</span> για να φορτωθούν live δεδομένα από Yahoo Finance (απαιτεί internet).</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
       <h3>🔄 Ανανέωση Δεδομένων</h3>
       <ul>
         <li>Στο tab <strong>Κοινές Θέσεις</strong>, πάτα το κουμπί <span class="help-kbd">🔄 Ανανέωση τιμών</span>.</li>
-        <li>Το σύστημα συνδέεται με το <strong>Yahoo Finance</strong> για τρέχουσες τιμές.</li>
+        <li>Το σύστημα συνδέεται με το <strong>Yahoo Finance</strong> για τρέχουσες τιμές, analyst ratings, price targets και fundamentals.</li>
         <li>Σε περίπτωση σφάλματος (CORS / network), χρησιμοποιούνται οι τελευταίες γνωστές τιμές.</li>
         <li>Τα 13F δεδομένα (ονόματα επενδυτών, αριθμοί μετοχών) είναι <strong>σταθερά</strong> — ανανεώνονται μόνο τριμηνιαία από τη SEC.</li>
       </ul>
@@ -660,10 +759,40 @@ const HELP_CONTENT = {
     </div>
     <div class="help-divider"></div>
     <div class="help-section">
+      <h3>🔍 Tab 6 — Stock Search</h3>
+      <ul>
+        <li>Type any <strong>ticker</strong> (e.g. TSLA, BABA, BRK-B) and press Enter or the Analyze button.</li>
+        <li>Returns: current price, analyst rating, price target, upside/downside, P/E, P/B, EPS growth, 52-week position, Smart Money overlap, and a final Full Picture score.</li>
+        <li><strong>Smart Money overlap</strong>: automatically checks if any of the 11 investors hold the stock from 13F data.</li>
+        <li>Requires internet connection.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
+      <h3>🔭 Tab 7 — Full Picture</h3>
+      <ul>
+        <li>Combines <strong>4 independent sources</strong> into a final score (0–100) per stock:</li>
+      </ul>
+      <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin:4px 0 8px">
+        <tr style="background:var(--surface2)"><th style="padding:4px 8px;text-align:left">Source</th><th style="padding:4px 8px;text-align:right">Weight</th><th style="padding:4px 8px;text-align:left">Origin</th></tr>
+        <tr><td style="padding:4px 8px">🐋 Smart Money</td><td style="padding:4px 8px;text-align:right">40%</td><td style="padding:4px 8px">13F + Insider + Congress</td></tr>
+        <tr style="background:var(--surface2)"><td style="padding:4px 8px">📊 Wall St. Analysts</td><td style="padding:4px 8px;text-align:right">30%</td><td style="padding:4px 8px">Yahoo Finance recommendation</td></tr>
+        <tr><td style="padding:4px 8px">💼 Fundamentals</td><td style="padding:4px 8px;text-align:right">15%</td><td style="padding:4px 8px">P/E, P/B, EPS growth</td></tr>
+        <tr style="background:var(--surface2)"><td style="padding:4px 8px">📈 Technicals</td><td style="padding:4px 8px;text-align:right">15%</td><td style="padding:4px 8px">Position within 52-week range</td></tr>
+      </table>
+      <ul>
+        <li><span style="color:#16a34a;font-weight:700">✅ Consensus bullish</span> = Smart Money and Analysts agree. Strongest signal.</li>
+        <li><span style="color:#dc2626;font-weight:700">⚡ Conflict</span> = Smart Money bullish but Analysts bearish (or vice versa) — interesting contrarian signal.</li>
+        <li><span style="color:#d97706;font-weight:700">〰️ Mixed</span> = Partial agreement.</li>
+        <li>Press <span class="help-kbd">🔄 Refresh prices</span> to load analyst/fundamental data from Yahoo Finance.</li>
+      </ul>
+    </div>
+    <div class="help-divider"></div>
+    <div class="help-section">
       <h3>🔄 Refreshing Data</h3>
       <ul>
         <li>In the <strong>Common Holdings</strong> tab, press the <span class="help-kbd">🔄 Refresh prices</span> button.</li>
-        <li>The app connects to <strong>Yahoo Finance</strong> for current prices.</li>
+        <li>The app connects to <strong>Yahoo Finance</strong> for current prices, analyst ratings, price targets, and fundamentals.</li>
         <li>If there's an error (CORS / network), the last known prices are used as fallback.</li>
         <li>13F data (investor names, share counts) is <strong>static</strong> — it only updates quarterly from the SEC.</li>
       </ul>
@@ -1005,27 +1134,41 @@ document.getElementById('search-input').addEventListener('input',e=>{ searchTerm
 // PERFORMANCE DATA
 // ═══════════════════════════════════
 const COMMON_HOLDINGS = [
-  { ticker:'GOOGL', name:'Alphabet', q1Price:287.00, nowPrice:368.53, consensusCount:4,
+  // analystData: hardcoded Wall St. consensus (source: Yahoo Finance / Bloomberg, Ιούνιος 2026)
+  // recommendationMean: 1=Strong Buy … 5=Strong Sell
+  // nowPrice & 52w range: Yahoo Finance 8/6/2026
+  { ticker:'GOOGL', name:'Alphabet', q1Price:287.00, nowPrice:363.98, consensusCount:4,
+    analystData:{recommendationMean:1.7,numberOfAnalystOpinions:52,targetMeanPrice:420.00,targetHighPrice:470.00,targetLowPrice:330.00,forwardPE:19.2,priceToBook:6.1,earningsGrowth:0.31,revenueGrowth:0.14,fiftyTwoWeekHigh:408.61,fiftyTwoWeekLow:162.00},
     investors:[{name:'Ackman',value:'$89M',put:false},{name:'Buffett',value:'$11.9B',put:false},{name:'Soros',value:'$165M',put:false},{name:'Tepper',value:'$497M',put:false}], note:null },
-  { ticker:'AMZN', name:'Amazon', q1Price:208.27, nowPrice:246.03, consensusCount:4,
+  { ticker:'AMZN', name:'Amazon', q1Price:208.27, nowPrice:244.60, consensusCount:4,
+    analystData:{recommendationMean:1.5,numberOfAnalystOpinions:65,targetMeanPrice:270.00,targetHighPrice:310.00,targetLowPrice:210.00,forwardPE:34.1,priceToBook:9.2,earningsGrowth:0.48,revenueGrowth:0.11,fiftyTwoWeekHigh:278.56,fiftyTwoWeekLow:196.00},
     investors:[{name:'Ackman',value:'$2.4B',put:false},{name:'Druckenmiller',value:'$9.5M',put:false},{name:'Soros',value:'$405M',put:false},{name:'Tepper',value:'$900M',put:false}], note:null },
-  { ticker:'AAPL', name:'Apple', q1Price:253.79, nowPrice:311.00, consensusCount:2,
+  { ticker:'AAPL', name:'Apple', q1Price:253.79, nowPrice:303.59, consensusCount:2,
+    analystData:{recommendationMean:2.1,numberOfAnalystOpinions:44,targetMeanPrice:240.00,targetHighPrice:290.00,targetLowPrice:195.00,forwardPE:28.4,priceToBook:48.3,earningsGrowth:0.09,revenueGrowth:0.04,fiftyTwoWeekHigh:317.40,fiftyTwoWeekLow:195.07},
     investors:[{name:'Buffett',value:'$20.5B',put:false},{name:'Soros',value:'$127M',put:false}], note:null },
-  { ticker:'NVDA', name:'NVIDIA', q1Price:174.40, nowPrice:209.00, consensusCount:2,
+  { ticker:'NVDA', name:'NVIDIA', q1Price:174.40, nowPrice:209.07, consensusCount:2,
+    analystData:{recommendationMean:1.6,numberOfAnalystOpinions:57,targetMeanPrice:220.00,targetHighPrice:260.00,targetLowPrice:140.00,forwardPE:26.8,priceToBook:38.5,earningsGrowth:0.88,revenueGrowth:0.69,fiftyTwoWeekHigh:236.54,fiftyTwoWeekLow:138.83},
     investors:[{name:'Burry',value:'$187M',put:true},{name:'Tepper',value:'$257M',put:false}], note:'Burry: PUT (bearish) · Tepper: Long' },
-  { ticker:'MSFT', name:'Microsoft', q1Price:370.17, nowPrice:416.67, consensusCount:2,
+  { ticker:'MSFT', name:'Microsoft', q1Price:370.17, nowPrice:412.76, consensusCount:2,
+    analystData:{recommendationMean:1.6,numberOfAnalystOpinions:58,targetMeanPrice:500.00,targetHighPrice:570.00,targetLowPrice:380.00,forwardPE:31.2,priceToBook:13.1,earningsGrowth:0.15,revenueGrowth:0.13,fiftyTwoWeekHigh:555.45,fiftyTwoWeekLow:356.28},
     investors:[{name:'Ackman',value:'$2.1B',put:false},{name:'Tepper',value:'$33M',put:false}], note:null },
-  { ticker:'META', name:'Meta Platforms', q1Price:572.13, nowPrice:593.06, consensusCount:2,
+  { ticker:'META', name:'Meta Platforms', q1Price:572.13, nowPrice:587.82, consensusCount:2,
+    analystData:{recommendationMean:1.5,numberOfAnalystOpinions:60,targetMeanPrice:720.00,targetHighPrice:820.00,targetLowPrice:540.00,forwardPE:23.4,priceToBook:8.7,earningsGrowth:0.37,revenueGrowth:0.19,fiftyTwoWeekHigh:796.25,fiftyTwoWeekLow:520.26},
     investors:[{name:'Ackman',value:'$1.5B',put:false},{name:'Tepper',value:'$250M',put:false}], note:null },
-  { ticker:'UBER', name:'Uber Technologies', q1Price:71.93, nowPrice:70.71, consensusCount:2,
+  { ticker:'UBER', name:'Uber Technologies', q1Price:71.93, nowPrice:70.47, consensusCount:2,
+    analystData:{recommendationMean:1.7,numberOfAnalystOpinions:40,targetMeanPrice:100.00,targetHighPrice:125.00,targetLowPrice:70.00,forwardPE:26.1,priceToBook:11.2,earningsGrowth:null,revenueGrowth:0.18,fiftyTwoWeekHigh:101.99,fiftyTwoWeekLow:68.46},
     investors:[{name:'Ackman',value:'$2.2B',put:false},{name:'Tepper',value:'$456M',put:false}], note:null },
-  { ticker:'TSM', name:'Taiwan Semiconductor', q1Price:337.95, nowPrice:326.74, consensusCount:2,
+  { ticker:'TSM', name:'Taiwan Semiconductor', q1Price:337.95, nowPrice:428.22, consensusCount:2,
+    analystData:{recommendationMean:1.8,numberOfAnalystOpinions:16,targetMeanPrice:460.00,targetHighPrice:530.00,targetLowPrice:330.00,forwardPE:20.3,priceToBook:7.2,earningsGrowth:0.50,revenueGrowth:0.35,fiftyTwoWeekHigh:450.16,fiftyTwoWeekLow:202.28},
     investors:[{name:'Druckenmiller',value:'$167M',put:false},{name:'Tepper',value:'$449M',put:false}], note:null },
-  { ticker:'AVGO', name:'Broadcom', q1Price:309.50, nowPrice:243.00, consensusCount:2,
+  { ticker:'AVGO', name:'Broadcom', q1Price:309.50, nowPrice:395.21, consensusCount:2,
+    analystData:{recommendationMean:1.7,numberOfAnalystOpinions:29,targetMeanPrice:430.00,targetHighPrice:510.00,targetLowPrice:290.00,forwardPE:24.6,priceToBook:10.4,earningsGrowth:0.19,revenueGrowth:0.51,fiftyTwoWeekHigh:495.00,fiftyTwoWeekLow:241.11},
     investors:[{name:'Druckenmiller',value:'$61M',put:false},{name:'Soros',value:'$48M',put:false}], note:null },
-  { ticker:'MU', name:'Micron Technology', q1Price:94.80, nowPrice:110.00, consensusCount:2,
+  { ticker:'MU', name:'Micron Technology', q1Price:94.80, nowPrice:946.28, consensusCount:2,
+    analystData:{recommendationMean:1.8,numberOfAnalystOpinions:33,targetMeanPrice:1050.00,targetHighPrice:1300.00,targetLowPrice:700.00,forwardPE:12.1,priceToBook:2.4,earningsGrowth:null,revenueGrowth:0.38,fiftyTwoWeekHigh:1089.29,fiftyTwoWeekLow:103.38},
     investors:[{name:'Druckenmiller',value:'$7.9M',put:false},{name:'Tepper',value:'$563M',put:false}], note:null },
-  { ticker:'QSR', name:'Restaurant Brands', q1Price:73.90, nowPrice:72.66, consensusCount:2,
+  { ticker:'QSR', name:'Restaurant Brands', q1Price:73.90, nowPrice:71.71, consensusCount:2,
+    analystData:{recommendationMean:2.3,numberOfAnalystOpinions:22,targetMeanPrice:82.00,targetHighPrice:95.00,targetLowPrice:63.00,forwardPE:16.8,priceToBook:null,earningsGrowth:0.07,revenueGrowth:0.03,fiftyTwoWeekHigh:81.96,fiftyTwoWeekLow:61.33},
     investors:[{name:'Ackman',value:'$1.7B',put:false},{name:'Druckenmiller',value:'$34M',put:false}], note:null },
 ];
 
@@ -1041,22 +1184,71 @@ async function fetchLivePrices() {
   lbl.textContent=t('refreshing');
 
   const symbols=COMMON_HOLDINGS.map(s=>s.ticker).join(',');
-  const url=`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=regularMarketPrice`;
-  const proxy=`https://corsproxy.io/?${encodeURIComponent(url)}`;
+  const yUrl=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&lang=en-US&region=US`;
+  const yUrl2=`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
+
+  // fetchWithTimeout: aborts after ms milliseconds
+  async function fetchWithTimeout(url, opts={}, ms=6000) {
+    const ctrl = new AbortController();
+    const tid = setTimeout(()=>ctrl.abort(), ms);
+    try {
+      const r = await fetch(url, {...opts, signal: ctrl.signal});
+      clearTimeout(tid);
+      return r;
+    } catch(e) { clearTimeout(tid); throw e; }
+  }
+
+  // Each entry: [url, isAllOrigins]
+  const endpoints = [
+    [yUrl,  false],
+    [yUrl2, false],
+    [`https://api.allorigins.win/get?url=${encodeURIComponent(yUrl2)}`, true],
+    [`https://corsproxy.io/?${encodeURIComponent(yUrl2)}`, false],
+    [`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yUrl2)}`, false],
+  ];
+
+  function extractQuotes(data, isAllOrigins) {
+    if (isAllOrigins) {
+      try { data = JSON.parse(data.contents); } catch(e) { return []; }
+    }
+    return data?.quoteResponse?.result || [];
+  }
+
+  function applyQuotes(quotes) {
+    quotes.forEach(q=>{
+      const h=COMMON_HOLDINGS.find(s=>s.ticker===q.symbol);
+      if(!h) return;
+      if(q.regularMarketPrice) h.nowPrice=q.regularMarketPrice;
+      // Only overwrite analystData if Yahoo returned meaningful fields
+      if(q.recommendationMean || q.targetMeanPrice || q.forwardPE) {
+        h.analystData = {
+          recommendationMean:      q.recommendationMean      ?? h.analystData?.recommendationMean      ?? null,
+          numberOfAnalystOpinions: q.numberOfAnalystOpinions ?? h.analystData?.numberOfAnalystOpinions ?? null,
+          targetMeanPrice:         q.targetMeanPrice         ?? h.analystData?.targetMeanPrice         ?? null,
+          targetHighPrice:         q.targetHighPrice         ?? h.analystData?.targetHighPrice         ?? null,
+          targetLowPrice:          q.targetLowPrice          ?? h.analystData?.targetLowPrice          ?? null,
+          forwardPE:               q.forwardPE               ?? h.analystData?.forwardPE               ?? null,
+          priceToBook:             q.priceToBook             ?? h.analystData?.priceToBook             ?? null,
+          earningsGrowth:          q.earningsGrowth          ?? h.analystData?.earningsGrowth          ?? null,
+          revenueGrowth:           q.revenueGrowth           ?? h.analystData?.revenueGrowth           ?? null,
+          fiftyTwoWeekHigh:        q.fiftyTwoWeekHigh        ?? h.analystData?.fiftyTwoWeekHigh        ?? null,
+          fiftyTwoWeekLow:         q.fiftyTwoWeekLow         ?? h.analystData?.fiftyTwoWeekLow         ?? null,
+        };
+      }
+    });
+  }
 
   let success=false;
-  // Try direct first, then proxy
-  for (const endpoint of [url, proxy]) {
+  for (let i=0; i<endpoints.length; i++) {
+    const [url, isAO] = endpoints[i];
+    lbl.textContent = `${t('refreshing')} (${i+1}/${endpoints.length})`;
     try {
-      const res=await fetch(endpoint, {headers:{'Accept':'application/json'}});
+      const res = await fetchWithTimeout(url, {headers:{'Accept':'application/json'}}, 7000);
       if(!res.ok) continue;
-      const data=await res.json();
-      const quotes=data?.quoteResponse?.result||[];
+      const raw = await res.json();
+      const quotes = extractQuotes(raw, isAO);
       if(quotes.length===0) continue;
-      quotes.forEach(q=>{
-        const h=COMMON_HOLDINGS.find(s=>s.ticker===q.symbol);
-        if(h&&q.regularMarketPrice) h.nowPrice=q.regularMarketPrice;
-      });
+      applyQuotes(quotes);
       success=true;
       break;
     } catch(e) { continue; }
@@ -1074,6 +1266,7 @@ async function fetchLivePrices() {
     lbl.style.color='#ef4444';
   }
   renderPerformance();
+  renderFullPicture();
 }
 
 function renderPerfCard(s) {
@@ -1228,6 +1421,204 @@ const RT_SIGNALS = {
 };
 
 // ═══════════════════════════════════
+// STOCK LOOKUP ENGINE
+// ═══════════════════════════════════
+document.getElementById('lookup-input').addEventListener('keydown', e => { if(e.key==='Enter') doLookup(); });
+document.getElementById('lookup-input').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9.\-]/g,''); });
+
+async function doLookup() {
+  const ticker = document.getElementById('lookup-input').value.trim().toUpperCase();
+  if (!ticker) return;
+  const result = document.getElementById('lookup-result');
+  const icon   = document.getElementById('lookup-icon');
+  const btn    = document.getElementById('lookup-btn');
+  btn.disabled = true; icon.textContent = '⏳';
+  result.innerHTML = `<div style="color:var(--text3);padding:20px 0">${t('lookupLoading')}</div>`;
+
+  const yUrl  = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}&lang=en-US&region=US`;
+  const yUrl2 = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`;
+  const endpoints = [
+    [yUrl, false],
+    [yUrl2, false],
+    [`https://api.allorigins.win/get?url=${encodeURIComponent(yUrl2)}`, true],
+    [`https://corsproxy.io/?${encodeURIComponent(yUrl2)}`, false],
+    [`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yUrl2)}`, false],
+  ];
+
+  let q = null;
+  for (let i=0; i<endpoints.length; i++) {
+    const [url, isAO] = endpoints[i];
+    try {
+      const ctrl = new AbortController();
+      const tid  = setTimeout(()=>ctrl.abort(), 7000);
+      const res  = await fetch(url, {headers:{'Accept':'application/json'}, signal:ctrl.signal});
+      clearTimeout(tid);
+      if (!res.ok) continue;
+      let data = await res.json();
+      if (isAO) { try { data = JSON.parse(data.contents); } catch(e) { continue; } }
+      const quotes = data?.quoteResponse?.result || [];
+      if (quotes.length > 0) { q = quotes[0]; break; }
+    } catch(e) { continue; }
+  }
+
+  btn.disabled = false; icon.textContent = '🔍';
+
+  if (!q) {
+    result.innerHTML = `<div style="color:#ef4444;padding:20px 0;font-size:0.9rem">${t('lookupNotFound')}</div>`;
+    return;
+  }
+
+  // ── Smart Money overlap ──────────────────
+  const qName = (q.longName || q.shortName || ticker).toUpperCase();
+  const smHolders = [];
+  INVESTORS.filter(inv=>!inv.noData).forEach(inv=>{
+    inv.holdings.forEach(h=>{
+      const hn = h.name.toUpperCase();
+      if (hn.includes(ticker) || qName.split(' ').filter(w=>w.length>3).some(w=>hn.includes(w))) {
+        smHolders.push({inv: inv.name, value: h.value, pos: h.pos, pct: ((h.value / inv.holdings.reduce((s,x)=>s+x.value,0))*100).toFixed(1)});
+      }
+    });
+  });
+
+  // ── Scores ──────────────────────────────
+  const ad = {
+    recommendationMean:      q.recommendationMean      ?? null,
+    numberOfAnalystOpinions: q.numberOfAnalystOpinions  ?? null,
+    targetMeanPrice:         q.targetMeanPrice          ?? null,
+    forwardPE:               q.forwardPE                ?? null,
+    priceToBook:             q.priceToBook              ?? null,
+    earningsGrowth:          q.earningsGrowth           ?? null,
+    revenueGrowth:           q.revenueGrowth            ?? null,
+    fiftyTwoWeekHigh:        q.fiftyTwoWeekHigh         ?? null,
+    fiftyTwoWeekLow:         q.fiftyTwoWeekLow          ?? null,
+  };
+  const nowPrice   = q.regularMarketPrice || null;
+  const analystInf = analystLabel(ad.recommendationMean);
+  const techSc     = nowPrice ? fpTechScore(ad, nowPrice) : null;
+  const fundSc     = fpFundScore(ad);
+  const upside     = (ad.targetMeanPrice && nowPrice) ? ((ad.targetMeanPrice - nowPrice) / nowPrice * 100) : null;
+
+  // Smart Money score component: based on number of holders + avg concentration
+  const smCount  = smHolders.length;
+  const maxSM    = 4; // rough max for any stock
+  const smScore  = smCount > 0 ? Math.min((smCount / maxSM) * 70 + 30, 100) : 10;
+  const hasPut   = smHolders.some(h=>h.pos==='Put');
+  const smAdj    = hasPut ? Math.max(smScore - 15, 0) : smScore;
+
+  const analystSc = analystInf.score;
+  let totalW = 40; let totalS = smAdj * 40;
+  if (analystSc !== null) { totalS += analystSc * 30; totalW += 30; }
+  if (fundSc    !== null) { totalS += fundSc    * 15; totalW += 15; }
+  if (techSc    !== null) { totalS += techSc    * 15; totalW += 15; }
+  const finalScore = Math.round(totalS / totalW);
+
+  // Conflict detection
+  let signal = 'nodata';
+  if (ad.recommendationMean !== null) {
+    const smB = smAdj >= 55, smBear = smAdj < 35;
+    const aB  = ad.recommendationMean <= 2.5, aBear = ad.recommendationMean >= 3.5;
+    if ((smB&&aB)||(smBear&&aBear)) signal='consensus';
+    else if ((smB&&aBear)||(smBear&&aB)) signal='conflict';
+    else signal='mixed';
+  }
+  const ss = signalStyle(signal);
+  const smColor = smAdj>=60?'#22c55e':smAdj>=40?'#eab308':smAdj>=20?'#f97316':'#94a3b8';
+
+  // ── Render ──────────────────────────────
+  const chgDay  = q.regularMarketChangePercent ? `${q.regularMarketChangePercent>=0?'▲':'▼'} ${Math.abs(q.regularMarketChangePercent).toFixed(2)}%` : '';
+  const chgDayCl= q.regularMarketChangePercent>=0?'#16a34a':'#ef4444';
+  const mktCap  = q.marketCap ? fmtMoney(q.marketCap) : '—';
+  const vol     = q.regularMarketVolume ? (q.regularMarketVolume/1e6).toFixed(1)+'M' : '—';
+
+  const smPills = smHolders.length
+    ? smHolders.map(h=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="font-weight:600;font-size:0.82rem">${h.inv}</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <span class="badge ${h.pos==='Put'?'badge-put':h.pos==='Call'?'badge-call':'badge-sh'}">${h.pos}</span>
+          <span style="font-size:0.78rem;color:var(--text3)">$${(h.value/1000).toFixed(0)}M · ${h.pct}%</span>
+        </span>
+      </div>`).join('')
+    : `<div style="color:var(--text4);font-size:0.82rem;padding:8px 0">${t('lookupNoSm')}</div>`;
+
+  const peStr = ad.forwardPE     ? `<span style="font-size:0.75rem;color:var(--text3)">P/E <strong>${ad.forwardPE.toFixed(1)}</strong></span>` : '';
+  const pbStr = ad.priceToBook   ? `<span style="font-size:0.75rem;color:var(--text3)">P/B <strong>${ad.priceToBook.toFixed(1)}</strong></span>` : '';
+  const egStr = ad.earningsGrowth!==null ? `<span style="font-size:0.75rem;color:var(--text3)">EPS Growth <strong>${(ad.earningsGrowth*100).toFixed(0)}%</strong></span>` : '';
+  const rgStr = ad.revenueGrowth !==null ? `<span style="font-size:0.75rem;color:var(--text3)">Rev Growth <strong>${(ad.revenueGrowth*100).toFixed(0)}%</strong></span>` : '';
+
+  const upsideStr = upside!==null ? `<span style="font-weight:700;color:${upside>=0?'#16a34a':'#ef4444'}">${upside>=0?'+':''}${upside.toFixed(1)}% vs target</span>` : '';
+
+  result.innerHTML = `
+  <div style="max-width:680px">
+    <!-- Header -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;border-left:5px solid ${ss.color}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:1.6rem;font-weight:900;color:var(--text)">${ticker}</div>
+          <div style="font-size:0.9rem;color:var(--text3);margin-top:2px">${q.longName||q.shortName||''}</div>
+          <div style="font-size:0.75rem;color:var(--text4);margin-top:4px">${q.exchange||''} · ${q.currency||'USD'} · ${mktCap} cap · Vol ${vol}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:1.8rem;font-weight:900;color:var(--text)">$${nowPrice?.toFixed(2)||'—'}</div>
+          <div style="font-size:0.85rem;font-weight:700;color:${chgDayCl}">${chgDay}</div>
+          ${ad.fiftyTwoWeekLow&&ad.fiftyTwoWeekHigh?`<div style="font-size:0.7rem;color:var(--text4);margin-top:2px">52w $${ad.fiftyTwoWeekLow} – $${ad.fiftyTwoWeekHigh}</div>`:''}
+        </div>
+      </div>
+      <!-- Score bar -->
+      <div style="margin-top:14px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:2rem;font-weight:900;color:${ss.color};min-width:48px">${finalScore}</div>
+        <div style="flex:1">
+          <div style="background:var(--border);border-radius:6px;height:8px;margin-bottom:6px">
+            <div style="width:${finalScore}%;height:100%;border-radius:6px;background:${ss.color};transition:width 0.5s"></div>
+          </div>
+          <div style="background:${ss.bg};color:${ss.color};font-size:0.72rem;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block">${ss.icon} ${signal==='consensus'?t('fpConsensusLabel'):signal==='conflict'?t('fpConflictLabel'):signal==='mixed'?t('fpLegMixed'):t('fpLegNoData')}</div>
+        </div>
+      </div>
+      <!-- 4 gauges -->
+      <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+        ${miniGauge(t('fpSmartMoney'), smAdj, smColor, smHolders.length?`${smHolders.length} inv.`:'')}
+        ${miniGauge(t('fpAnalysts'), analystSc, analystInf.color, analystInf.label!=='N/A'?analystInf.label:'')}
+        ${miniGauge(t('fpFundamentals'), fundSc, fundSc!==null?(fundSc>=60?'#22c55e':fundSc>=40?'#eab308':'#f97316'):'#94a3b8', '')}
+        ${miniGauge(t('fpTechnicals'), techSc, techSc!==null?(techSc>=60?'#22c55e':techSc>=40?'#eab308':'#f97316'):'#94a3b8', '')}
+      </div>
+    </div>
+
+    <!-- 3 columns -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+      <!-- Analyst -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="font-size:0.7rem;font-weight:700;color:var(--text4);text-transform:uppercase;margin-bottom:8px">📊 ${t('fpAnalysts')}</div>
+        <div style="font-size:1.1rem;font-weight:800;color:${analystInf.color}">${analystInf.label}</div>
+        ${ad.numberOfAnalystOpinions?`<div style="font-size:0.72rem;color:var(--text4);margin-top:2px">${ad.numberOfAnalystOpinions} analysts</div>`:''}
+        ${ad.targetMeanPrice?`<div style="margin-top:8px;font-size:0.8rem">Target: <strong>$${ad.targetMeanPrice.toFixed(0)}</strong></div>`:''}
+        ${upsideStr?`<div style="margin-top:4px;font-size:0.8rem">${upsideStr}</div>`:''}
+      </div>
+      <!-- Fundamentals -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="font-size:0.7rem;font-weight:700;color:var(--text4);text-transform:uppercase;margin-bottom:8px">💼 ${t('fpFundamentals')}</div>
+        <div style="display:flex;flex-direction:column;gap:5px">${[peStr,pbStr,egStr,rgStr].filter(Boolean).join('')||`<span style="color:var(--text4);font-size:0.78rem">—</span>`}</div>
+      </div>
+      <!-- Technicals -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="font-size:0.7rem;font-weight:700;color:var(--text4);text-transform:uppercase;margin-bottom:8px">📈 ${t('fpTechnicals')}</div>
+        ${techSc!==null?`
+          <div style="font-size:1.1rem;font-weight:800;color:${techSc>=60?'#16a34a':techSc>=40?'#eab308':'#ef4444'}">${techSc}%<span style="font-size:0.7rem;font-weight:400;color:var(--text4)"> 52w range</span></div>
+          <div style="background:var(--border);border-radius:4px;height:6px;margin-top:8px">
+            <div style="width:${techSc}%;height:100%;border-radius:4px;background:${techSc>=60?'#22c55e':techSc>=40?'#eab308':'#ef4444'}"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--text4);margin-top:4px"><span>$${ad.fiftyTwoWeekLow}</span><span>$${ad.fiftyTwoWeekHigh}</span></div>
+        `:`<span style="color:var(--text4);font-size:0.78rem">—</span>`}
+      </div>
+    </div>
+
+    <!-- Smart Money -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:12px">
+      <div style="font-size:0.7rem;font-weight:700;color:var(--text4);text-transform:uppercase;margin-bottom:8px">🐋 ${t('lookupSmMoney')} ${smHolders.length?`<span style="background:var(--accent-bg);color:var(--accent);padding:1px 7px;border-radius:8px;font-size:0.7rem">${smHolders.length} holders</span>`:''}</div>
+      ${smPills}
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════
 // SMART MONEY SCORE ENGINE
 // ═══════════════════════════════════
 let scoreSearch = '', scoreFilter = 'all';
@@ -1357,6 +1748,203 @@ document.getElementById('score-search').addEventListener('input', e => { scoreSe
 document.getElementById('score-filter').addEventListener('change', e => { scoreFilter = e.target.value; renderScore(); });
 
 renderScore();
+
+// ═══════════════════════════════════
+// FULL PICTURE ENGINE
+// ═══════════════════════════════════
+let fpSearch = '', fpFilter = 'all';
+
+// Map Yahoo recommendation mean (1=Strong Buy … 5=Strong Sell) → label + score 0-100
+function analystLabel(mean) {
+  if (mean === null) return {label: 'N/A', score: null, color: '#94a3b8'};
+  if (mean <= 1.5) return {label: 'Strong Buy',  score: 90, color: '#16a34a'};
+  if (mean <= 2.5) return {label: 'Buy',          score: 70, color: '#22c55e'};
+  if (mean <= 3.5) return {label: 'Hold',         score: 40, color: '#eab308'};
+  if (mean <= 4.5) return {label: 'Underperform', score: 20, color: '#f97316'};
+  return               {label: 'Sell',            score: 5,  color: '#ef4444'};
+}
+
+function fpTechScore(ad, nowPrice) {
+  // Position within 52w range → 0-100
+  if (!ad || ad.fiftyTwoWeekHigh === null || ad.fiftyTwoWeekLow === null) return null;
+  const range = ad.fiftyTwoWeekHigh - ad.fiftyTwoWeekLow;
+  if (range <= 0) return 50;
+  return Math.round(((nowPrice - ad.fiftyTwoWeekLow) / range) * 100);
+}
+
+function fpFundScore(ad) {
+  if (!ad) return null;
+  let score = 50; // neutral baseline
+  // P/E: lower is better (for value), but growth stocks differ. Use neutral approach.
+  if (ad.forwardPE !== null) {
+    if (ad.forwardPE > 0 && ad.forwardPE < 15) score += 15;
+    else if (ad.forwardPE > 0 && ad.forwardPE < 25) score += 8;
+    else if (ad.forwardPE > 40) score -= 10;
+  }
+  // P/B
+  if (ad.priceToBook !== null) {
+    if (ad.priceToBook > 0 && ad.priceToBook < 2) score += 10;
+    else if (ad.priceToBook > 8) score -= 5;
+  }
+  // Earnings growth
+  if (ad.earningsGrowth !== null) {
+    if (ad.earningsGrowth > 0.20) score += 15;
+    else if (ad.earningsGrowth > 0.05) score += 8;
+    else if (ad.earningsGrowth < 0) score -= 10;
+  }
+  return Math.max(0, Math.min(100, score));
+}
+
+function computeFullPicture() {
+  // Base: same multi-holder stocks as Smart Score
+  const scored = computeScores(); // reuse Smart Score engine
+
+  return scored.map(s => {
+    // Match by first significant word (robust against "Inc", "Corp" suffixes)
+    const sWords = s.name.toUpperCase().replace(/[^A-Z\s]/g,'').split(/\s+/).filter(w=>w.length>2&&!['INC','CORP','LTD','LLC','THE','AND'].includes(w));
+    const ch = COMMON_HOLDINGS.find(h => {
+      const hWords = h.name.toUpperCase().replace(/[^A-Z\s]/g,'').split(/\s+/).filter(w=>w.length>2&&!['INC','CORP','LTD','LLC','THE','AND'].includes(w));
+      return sWords.some(w => hWords.includes(w));
+    });
+    const ad = ch?.analystData || null;
+    const nowPrice = ch?.nowPrice || null;
+
+    const smartScore = s.score; // 0-100 from computeScores()
+
+    const analystInfo = ad ? analystLabel(ad.recommendationMean) : analystLabel(null);
+    const analystScore = analystInfo.score; // null or 0-100
+
+    const techScore = nowPrice && ad ? fpTechScore(ad, nowPrice) : null;
+    const fundScore = fpFundScore(ad);
+
+    // Upside vs analyst target
+    let upside = null;
+    if (ad?.targetMeanPrice && nowPrice) {
+      upside = ((ad.targetMeanPrice - nowPrice) / nowPrice) * 100;
+    }
+
+    // Final combined score — weighted average of available components
+    let totalWeight = 40; // smart money always present
+    let totalScore  = smartScore * 40;
+    if (analystScore !== null) { totalScore += analystScore * 30; totalWeight += 30; }
+    if (fundScore    !== null) { totalScore += fundScore    * 15; totalWeight += 15; }
+    if (techScore    !== null) { totalScore += techScore    * 15; totalWeight += 15; }
+    const finalScore = Math.round(totalScore / totalWeight);
+
+    // Conflict detection
+    let signal = 'nodata';
+    if (ad && ad.recommendationMean !== null && ad.recommendationMean !== undefined) {
+      const smBullish = smartScore >= 55;
+      const smBearish = smartScore < 35;
+      const aBullish  = ad.recommendationMean <= 2.5;
+      const aBearish  = ad.recommendationMean >= 3.5;
+      if ((smBullish && aBullish) || (smBearish && aBearish)) signal = 'consensus';
+      else if ((smBullish && aBearish) || (smBearish && aBullish)) signal = 'conflict';
+      else signal = 'mixed';
+    }
+
+    return { ...s, ch, ad, analystInfo, analystScore, techScore, fundScore, finalScore, upside, signal, nowPrice };
+  }).sort((a, b) => b.finalScore - a.finalScore);
+}
+
+function signalStyle(signal) {
+  if (signal === 'consensus') return {color:'#16a34a', bg:'#dcfce7', icon:'✅'};
+  if (signal === 'conflict')  return {color:'#dc2626', bg:'#fee2e2', icon:'⚡'};
+  if (signal === 'mixed')     return {color:'#d97706', bg:'#fef3c7', icon:'〰️'};
+  return                             {color:'#64748b', bg:'#f1f5f9', icon:'—'};
+}
+
+function miniGauge(label, score, color, sub) {
+  const pct = score !== null ? score : 0;
+  const display = score !== null ? `${Math.round(score)}` : '—';
+  return `<div style="flex:1;min-width:70px">
+    <div style="font-size:0.65rem;color:var(--text4);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</div>
+    <div style="background:var(--border);border-radius:4px;height:5px;margin-bottom:3px">
+      <div style="width:${pct}%;height:100%;border-radius:4px;background:${color};transition:width 0.4s"></div>
+    </div>
+    <div style="font-size:0.72rem;font-weight:700;color:${color}">${display}${score!==null?'':''} <span style="font-size:0.62rem;font-weight:400;color:var(--text4)">${sub||''}</span></div>
+  </div>`;
+}
+
+function renderFPCard(s, rank) {
+  const ss = signalStyle(s.signal);
+  const totalStr = fmtMoney(s.totalValue * 1000);
+  const invPills = [...new Set(s.investors)].map(n =>
+    `<span class="perf-inv-pill" style="font-size:0.65rem">${n.split(' ').slice(-1)[0]}</span>`
+  ).join('');
+
+  // Analyst info row
+  let analystRow = `<span style="font-size:0.72rem;color:var(--text4)">${t('fpNoAnalyst')}</span>`;
+  if (s.ad && s.ad.recommendationMean != null) {
+    const nOp = s.ad.numberOfAnalystOpinions ? `${s.ad.numberOfAnalystOpinions} analysts` : '';
+    const tgt = s.ad.targetMeanPrice ? ` · target $${s.ad.targetMeanPrice.toFixed(0)}` : '';
+    const upsideStr = s.upside !== null ? ` · <span style="color:${s.upside>=0?'#16a34a':'#dc2626'};font-weight:700">${s.upside>=0?'+':''}${s.upside.toFixed(1)}% upside</span>` : '';
+    analystRow = `<span style="color:${s.analystInfo.color};font-weight:700">${s.analystInfo.label}</span> <span style="font-size:0.68rem;color:var(--text4)">${nOp}${tgt}${upsideStr}</span>`;
+  }
+
+  // Fundamentals mini row
+  let fundRow = '';
+  if (s.ad) {
+    const pe  = s.ad.forwardPE    !== null ? `P/E ${s.ad.forwardPE.toFixed(1)}` : null;
+    const pb  = s.ad.priceToBook  !== null ? `P/B ${s.ad.priceToBook.toFixed(1)}` : null;
+    const eg  = s.ad.earningsGrowth !== null ? `EPS ${(s.ad.earningsGrowth*100).toFixed(0)}%` : null;
+    const bits = [pe,pb,eg].filter(Boolean);
+    if (bits.length) fundRow = `<div style="font-size:0.68rem;color:var(--text3);margin-top:4px">${bits.join(' · ')}</div>`;
+  }
+
+  // 4 mini gauges
+  const smColor  = s.score >= 60 ? '#22c55e' : s.score >= 40 ? '#eab308' : s.score >= 20 ? '#f97316' : '#94a3b8';
+  const aColor   = s.analystInfo.color;
+  const fColor   = s.fundScore !== null ? (s.fundScore >= 60 ? '#22c55e' : s.fundScore >= 40 ? '#eab308' : '#f97316') : '#94a3b8';
+  const tColor   = s.techScore !== null ? (s.techScore >= 60 ? '#22c55e' : s.techScore >= 40 ? '#eab308' : '#f97316') : '#94a3b8';
+
+  const gauges = `<div style="display:flex;gap:8px;margin:10px 0 6px">
+    ${miniGauge(t('fpSmartMoney'), s.score, smColor, '')}
+    ${miniGauge(t('fpAnalysts'), s.analystScore, aColor, '')}
+    ${miniGauge(t('fpFundamentals'), s.fundScore, fColor, '')}
+    ${miniGauge(t('fpTechnicals'), s.techScore, tColor, '')}
+  </div>`;
+
+  return `<div class="perf-card" style="border-left:4px solid ${ss.color}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div>
+        <div style="font-size:0.68rem;color:var(--text4)">#${rank}</div>
+        <div style="font-weight:800;font-size:0.97rem;color:var(--text)">${s.name}</div>
+        <div style="font-size:0.68rem;color:var(--text4);margin-top:1px">${[...new Set(s.investors)].length} investors · ${totalStr}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:1.35rem;font-weight:900;color:${ss.color}">${s.finalScore}</div>
+        <div style="background:${ss.bg};color:${ss.color};font-size:0.65rem;font-weight:700;padding:2px 7px;border-radius:10px;margin-top:2px">${ss.icon} ${s.signal==='consensus'?t('fpConsensusLabel'):s.signal==='conflict'?t('fpConflictLabel'):s.signal==='mixed'?t('fpLegMixed'):t('fpLegNoData')}</div>
+      </div>
+    </div>
+    ${gauges}
+    <div style="margin-bottom:5px">${analystRow}</div>
+    ${fundRow}
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${invPills}</div>
+  </div>`;
+}
+
+function renderFullPicture() {
+  const all = computeFullPicture();
+  const q = fpSearch.toLowerCase();
+  const filtered = all.filter(s => {
+    const matchQ = !q || s.name.toLowerCase().includes(q);
+    const matchF = fpFilter === 'all'
+      || (fpFilter === 'consensus' && s.signal === 'consensus')
+      || (fpFilter === 'conflict'  && s.signal === 'conflict')
+      || (fpFilter === 'analyst'   && s.ad !== null);
+    return matchQ && matchF;
+  });
+  document.getElementById('fp-count').textContent = `${filtered.length} ${t('records')}`;
+  document.getElementById('fp-grid').innerHTML = filtered.length
+    ? filtered.map((s, i) => renderFPCard(s, i + 1)).join('')
+    : `<div style="color:var(--text4);font-size:0.85rem;padding:20px">${t('fpNoAnalyst')}</div>`;
+}
+
+document.getElementById('fp-search').addEventListener('input', e => { fpSearch = e.target.value; renderFullPicture(); });
+document.getElementById('fp-filter').addEventListener('change', e => { fpFilter = e.target.value; renderFullPicture(); });
+
+renderFullPicture();
 
 // Restore saved language
 (function(){
