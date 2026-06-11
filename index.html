@@ -1174,6 +1174,17 @@ const COMMON_HOLDINGS = [
 ];
 
 // ═══════════════════════════════════
+// FUNDAMENTALS CACHE
+// Popular tickers not in COMMON_HOLDINGS — hardcoded analyst data
+// Source: Yahoo Finance / MarketBeat / GuruFocus — Ιούνιος 2026
+// ═══════════════════════════════════
+const FUNDAMENTALS_CACHE = {
+  'SOFI': {recommendationMean:2.6,numberOfAnalystOpinions:28,targetMeanPrice:21.00,targetHighPrice:30.00,targetLowPrice:16.00,forwardPE:26.34,priceToBook:null,earningsGrowth:null,revenueGrowth:null,fiftyTwoWeekHigh:32.73,fiftyTwoWeekLow:13.96},
+  'BABA': {recommendationMean:1.6,numberOfAnalystOpinions:41,targetMeanPrice:191.95,targetHighPrice:250.00,targetLowPrice:140.00,forwardPE:18.12,priceToBook:null,earningsGrowth:null,revenueGrowth:null,fiftyTwoWeekHigh:192.67,fiftyTwoWeekLow:103.71},
+  'TSLA': {recommendationMean:2.3,numberOfAnalystOpinions:47,targetMeanPrice:410.00,targetHighPrice:499.00,targetLowPrice:200.00,forwardPE:null,priceToBook:null,earningsGrowth:null,revenueGrowth:null,fiftyTwoWeekHigh:498.83,fiftyTwoWeekLow:281.85},
+};
+
+// ═══════════════════════════════════
 // FETCH HELPERS
 // ═══════════════════════════════════
 async function timedFetch(url, ms=9000) {
@@ -1508,8 +1519,9 @@ async function doLookup() {
     return;
   }
 
-  // Check if this ticker is in our hardcoded COMMON_HOLDINGS (richer data)
+  // Check if this ticker is in our hardcoded COMMON_HOLDINGS or FUNDAMENTALS_CACHE
   const knownH = COMMON_HOLDINGS.find(h => h.ticker === ticker);
+  const cached = FUNDAMENTALS_CACHE[ticker] || null;
 
   // ── Smart Money overlap ──────────────────
   const qName = (yq?.longName || yq?.shortName || ticker).toUpperCase();
@@ -1523,20 +1535,20 @@ async function doLookup() {
     });
   });
 
-  // ── Analyst data: Yahoo live > hardcoded known holding > null ────────────
+  // ── Analyst data: Yahoo live > COMMON_HOLDINGS cache > FUNDAMENTALS_CACHE > null ──
   const ad = {
-    recommendationMean:      yq?.recommendationMean      ?? knownH?.analystData?.recommendationMean      ?? null,
-    numberOfAnalystOpinions: yq?.numberOfAnalystOpinions  ?? knownH?.analystData?.numberOfAnalystOpinions ?? null,
-    targetMeanPrice:         yq?.targetMeanPrice          ?? knownH?.analystData?.targetMeanPrice         ?? null,
-    forwardPE:               yq?.forwardPE                ?? knownH?.analystData?.forwardPE               ?? null,
-    priceToBook:             yq?.priceToBook              ?? knownH?.analystData?.priceToBook             ?? null,
-    earningsGrowth:          yq?.earningsGrowth           ?? knownH?.analystData?.earningsGrowth          ?? null,
-    revenueGrowth:           yq?.revenueGrowth            ?? knownH?.analystData?.revenueGrowth           ?? null,
-    // 52w: Yahoo v8 chart > Yahoo v7 > hardcoded
-    fiftyTwoWeekHigh: yq?.fiftyTwoWeekHigh ?? ym?.fiftyTwoWeekHigh ?? knownH?.analystData?.fiftyTwoWeekHigh ?? null,
-    fiftyTwoWeekLow:  yq?.fiftyTwoWeekLow  ?? ym?.fiftyTwoWeekLow  ?? knownH?.analystData?.fiftyTwoWeekLow  ?? null,
+    recommendationMean:      yq?.recommendationMean      ?? knownH?.analystData?.recommendationMean      ?? cached?.recommendationMean      ?? null,
+    numberOfAnalystOpinions: yq?.numberOfAnalystOpinions  ?? knownH?.analystData?.numberOfAnalystOpinions ?? cached?.numberOfAnalystOpinions  ?? null,
+    targetMeanPrice:         yq?.targetMeanPrice          ?? knownH?.analystData?.targetMeanPrice         ?? cached?.targetMeanPrice          ?? null,
+    forwardPE:               yq?.forwardPE                ?? knownH?.analystData?.forwardPE               ?? cached?.forwardPE                ?? null,
+    priceToBook:             yq?.priceToBook              ?? knownH?.analystData?.priceToBook             ?? cached?.priceToBook              ?? null,
+    earningsGrowth:          yq?.earningsGrowth           ?? knownH?.analystData?.earningsGrowth          ?? cached?.earningsGrowth           ?? null,
+    revenueGrowth:           yq?.revenueGrowth            ?? knownH?.analystData?.revenueGrowth           ?? cached?.revenueGrowth            ?? null,
+    // 52w: live > chart > hardcoded
+    fiftyTwoWeekHigh: yq?.fiftyTwoWeekHigh ?? ym?.fiftyTwoWeekHigh ?? knownH?.analystData?.fiftyTwoWeekHigh ?? cached?.fiftyTwoWeekHigh ?? null,
+    fiftyTwoWeekLow:  yq?.fiftyTwoWeekLow  ?? ym?.fiftyTwoWeekLow  ?? knownH?.analystData?.fiftyTwoWeekLow  ?? cached?.fiftyTwoWeekLow  ?? null,
   };
-  const dataSource = yq ? 'Yahoo+Stooq' : ym ? 'Stooq+YChart' : knownH ? 'Stooq+cached' : 'Stooq';
+  const dataSource = yq ? 'Yahoo+Stooq' : ym ? ((cached||knownH) ? 'YChart+cached★' : 'YChart') : ((cached||knownH) ? "cached★ Jun'26" : 'Stooq');
 
   const analystInf = analystLabel(ad.recommendationMean);
   const techSc     = fpTechScore(ad, nowPrice);
