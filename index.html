@@ -1272,6 +1272,33 @@ async function yahooV7Quote(ticker) {
 }
 
 // ═══════════════════════════════════
+// ALPHA SPREAD TARGETS
+// Scrapes analyst price targets from Alpha Spread HTML via corsproxy.io
+// Returns avg/low/high target + direction for ANY ticker — no API key needed
+// ═══════════════════════════════════
+async function alphaSpreadTargets(ticker) {
+  const url = `https://alphaspread.com/security/nasdaq/${ticker.toLowerCase()}/analyst-estimates`;
+  const proxied = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  try {
+    const r = await timedFetch(proxied, 9000);
+    if (!r.ok) return null;
+    const html = await r.text();
+    // Pattern: >TICKER</b> is <b class="space-no-wrap">21.41 <span...
+    const avgM  = html.match(/>[\w.\-]+<\/b> is <b[^>]*>([\d.]+)/i);
+    const lowM  = html.match(/low forecast of ([\d.]+)/i);
+    const highM = html.match(/high forecast of ([\d.]+)/i);
+    const dirM  = html.match(/forecast .{2,25} stock price to (rise|fall)/i);
+    if (!lowM && !avgM) return null;
+    return {
+      targetMeanPrice:  avgM?.[1]  ? parseFloat(avgM[1])  : null,
+      targetLowPrice:   lowM?.[1]  ? parseFloat(lowM[1])  : null,
+      targetHighPrice:  highM?.[1] ? parseFloat(highM[1]) : null,
+      bullish: dirM?.[1] !== 'fall',
+    };
+  } catch(e) { return null; }
+}
+
+// ═══════════════════════════════════
 // UNIFIED PRICE FETCHER
 // Stooq first (CORS-friendly), then Yahoo v8 chart as fallback
 // ═══════════════════════════════════
@@ -1494,15 +1521,14 @@ async function doLookup() {
   btn.disabled = true; icon.textContent = '⏳';
   result.innerHTML = `<div style="color:var(--text3);padding:20px 0">${t('lookupLoading')} (Stooq…)</div>`;
 
-  // 1. Stooq for reliable price
-  const sq = await stooqQuote(ticker);
-
-  // 2. Yahoo v8 chart for 52w range (lightweight, no crumb needed)
-  result.innerHTML = `<div style="color:var(--text3);padding:20px 0">${t('lookupLoading')} (Yahoo…)</div>`;
-  const ym = await yahooChart(ticker); // returns meta object
-
-  // 3. Yahoo v7 for analyst/fundamentals (optional, graceful fallback)
-  const yq = await yahooV7Quote(ticker);
+  // Run all sources in parallel for speed
+  result.innerHTML = `<div style="color:var(--text3);padding:20px 0">${t('lookupLoading')} (fetching…)</div>`;
+  const [sq, ym, yq, as] = await Promise.all([
+    stooqQuote(ticker),           // price (Stooq)
+    yahooChart(ticker),           // price + 52w (Yahoo v8)
+    yahooV7Quote(ticker),         // fundamentals (usually fails from GitHub Pages)
+    alphaSpreadTargets(ticker),   // price targets avg/low/high (Alpha Spread scrape)
+  ]);
 
   btn.disabled = false; icon.textContent = '🔍';
 
@@ -1535,20 +1561,23 @@ async function doLookup() {
     });
   });
 
-  // ── Analyst data: Yahoo live > COMMON_HOLDINGS cache > FUNDAMENTALS_CACHE > null ──
+  // ── Analyst data: Yahoo live > Alpha Spread > COMMON_HOLDINGS > FUNDAMENTALS_CACHE > null ──
   const ad = {
     recommendationMean:      yq?.recommendationMean      ?? knownH?.analystData?.recommendationMean      ?? cached?.recommendationMean      ?? null,
     numberOfAnalystOpinions: yq?.numberOfAnalystOpinions  ?? knownH?.analystData?.numberOfAnalystOpinions ?? cached?.numberOfAnalystOpinions  ?? null,
-    targetMeanPrice:         yq?.targetMeanPrice          ?? knownH?.analystData?.targetMeanPrice         ?? cached?.targetMeanPrice          ?? null,
-    forwardPE:               yq?.forwardPE                ?? knownH?.analystData?.forwardPE               ?? cached?.forwardPE                ?? null,
-    priceToBook:             yq?.priceToBook              ?? knownH?.analystData?.priceToBook             ?? cached?.priceToBook              ?? null,
-    earningsGrowth:          yq?.earningsGrowth           ?? knownH?.analystData?.earningsGrowth          ?? cached?.earningsGrowth           ?? null,
-    revenueGrowth:           yq?.revenueGrowth            ?? knownH?.analystData?.revenueGrowth           ?? cached?.revenueGrowth            ?? null,
+    // Target prices: Yahoo live > Alpha Spread live scrape > hardcoded cache
+    targetMeanPrice:  yq?.targetMeanPrice  ?? as?.targetMeanPrice  ?? knownH?.analystData?.targetMeanPrice  ?? cached?.targetMeanPrice  ?? null,
+    targetHighPrice:  yq?.targetHighPrice  ?? as?.targetHighPrice  ?? knownH?.analystData?.targetHighPrice  ?? cached?.targetHighPrice  ?? null,
+    targetLowPrice:   yq?.targetLowPrice   ?? as?.targetLowPrice   ?? knownH?.analystData?.targetLowPrice   ?? cached?.targetLowPrice   ?? null,
+    forwardPE:        yq?.forwardPE        ?? knownH?.analystData?.forwardPE    ?? cached?.forwardPE    ?? null,
+    priceToBook:      yq?.priceToBook      ?? knownH?.analystData?.priceToBook  ?? cached?.priceToBook  ?? null,
+    earningsGrowth:   yq?.earningsGrowth   ?? knownH?.analystData?.earningsGrowth ?? cached?.earningsGrowth ?? null,
+    revenueGrowth:    yq?.revenueGrowth    ?? knownH?.analystData?.revenueGrowth  ?? cached?.revenueGrowth  ?? null,
     // 52w: live > chart > hardcoded
     fiftyTwoWeekHigh: yq?.fiftyTwoWeekHigh ?? ym?.fiftyTwoWeekHigh ?? knownH?.analystData?.fiftyTwoWeekHigh ?? cached?.fiftyTwoWeekHigh ?? null,
     fiftyTwoWeekLow:  yq?.fiftyTwoWeekLow  ?? ym?.fiftyTwoWeekLow  ?? knownH?.analystData?.fiftyTwoWeekLow  ?? cached?.fiftyTwoWeekLow  ?? null,
   };
-  const dataSource = yq ? 'Yahoo+Stooq' : ym ? ((cached||knownH) ? 'YChart+cached★' : 'YChart') : ((cached||knownH) ? "cached★ Jun'26" : 'Stooq');
+  const dataSource = yq ? 'Yahoo' : as ? (ym ? 'AlphaSpread+YChart' : 'AlphaSpread') : ym ? ((cached||knownH) ? 'YChart+cached★' : 'YChart') : ((cached||knownH) ? "cached★ Jun'26" : 'Stooq');
 
   const analystInf = analystLabel(ad.recommendationMean);
   const techSc     = fpTechScore(ad, nowPrice);
@@ -1586,7 +1615,7 @@ async function doLookup() {
   const chgDayCl = (yq?.regularMarketChangePercent ?? 0) >= 0 ? '#16a34a' : '#ef4444';
   const mktCap   = yq?.marketCap ? fmtMoney(yq.marketCap) : '—';
   const vol      = yq?.regularMarketVolume ? (yq.regularMarketVolume/1e6).toFixed(1)+'M' : '—';
-  const longName = yq?.longName || yq?.shortName || (sq?.name ? sq.name : ticker);
+  const longName = yq?.longName || yq?.shortName || ym?.longName || ym?.shortName || (sq?.name ? sq.name : ticker);
 
   const smPills = smHolders.length
     ? smHolders.map(h=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
