@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="el">
 <head>
@@ -1136,7 +1137,7 @@ document.getElementById('search-input').addEventListener('input',e=>{ searchTerm
 const COMMON_HOLDINGS = [
   // analystData: hardcoded Wall St. consensus (source: Yahoo Finance / Bloomberg, Ιούνιος 2026)
   // recommendationMean: 1=Strong Buy … 5=Strong Sell
-  // nowPrice & 52w range: Yahoo Finance 8/6/2026
+  // nowPrice & 52w range: Yahoo Finance 11/6/2026
   { ticker:'GOOGL', name:'Alphabet', q1Price:287.00, nowPrice:363.98, consensusCount:4,
     analystData:{recommendationMean:1.7,numberOfAnalystOpinions:52,targetMeanPrice:420.00,targetHighPrice:470.00,targetLowPrice:330.00,forwardPE:19.2,priceToBook:6.1,earningsGrowth:0.31,revenueGrowth:0.14,fiftyTwoWeekHigh:408.61,fiftyTwoWeekLow:162.00},
     investors:[{name:'Ackman',value:'$89M',put:false},{name:'Buffett',value:'$11.9B',put:false},{name:'Soros',value:'$165M',put:false},{name:'Tepper',value:'$497M',put:false}], note:null },
@@ -1158,13 +1159,13 @@ const COMMON_HOLDINGS = [
   { ticker:'UBER', name:'Uber Technologies', q1Price:71.93, nowPrice:70.47, consensusCount:2,
     analystData:{recommendationMean:1.7,numberOfAnalystOpinions:40,targetMeanPrice:100.00,targetHighPrice:125.00,targetLowPrice:70.00,forwardPE:26.1,priceToBook:11.2,earningsGrowth:null,revenueGrowth:0.18,fiftyTwoWeekHigh:101.99,fiftyTwoWeekLow:68.46},
     investors:[{name:'Ackman',value:'$2.2B',put:false},{name:'Tepper',value:'$456M',put:false}], note:null },
-  { ticker:'TSM', name:'Taiwan Semiconductor', q1Price:337.95, nowPrice:428.22, consensusCount:2,
+  { ticker:'TSM', name:'Taiwan Semiconductor', q1Price:337.95, nowPrice:408.75, consensusCount:2,
     analystData:{recommendationMean:1.8,numberOfAnalystOpinions:16,targetMeanPrice:460.00,targetHighPrice:530.00,targetLowPrice:330.00,forwardPE:20.3,priceToBook:7.2,earningsGrowth:0.50,revenueGrowth:0.35,fiftyTwoWeekHigh:450.16,fiftyTwoWeekLow:202.28},
     investors:[{name:'Druckenmiller',value:'$167M',put:false},{name:'Tepper',value:'$449M',put:false}], note:null },
   { ticker:'AVGO', name:'Broadcom', q1Price:309.50, nowPrice:395.21, consensusCount:2,
     analystData:{recommendationMean:1.7,numberOfAnalystOpinions:29,targetMeanPrice:430.00,targetHighPrice:510.00,targetLowPrice:290.00,forwardPE:24.6,priceToBook:10.4,earningsGrowth:0.19,revenueGrowth:0.51,fiftyTwoWeekHigh:495.00,fiftyTwoWeekLow:241.11},
     investors:[{name:'Druckenmiller',value:'$61M',put:false},{name:'Soros',value:'$48M',put:false}], note:null },
-  { ticker:'MU', name:'Micron Technology', q1Price:94.80, nowPrice:946.28, consensusCount:2,
+  { ticker:'MU', name:'Micron Technology', q1Price:94.80, nowPrice:891.88, consensusCount:2,
     analystData:{recommendationMean:1.8,numberOfAnalystOpinions:33,targetMeanPrice:1050.00,targetHighPrice:1300.00,targetLowPrice:700.00,forwardPE:12.1,priceToBook:2.4,earningsGrowth:null,revenueGrowth:0.38,fiftyTwoWeekHigh:1089.29,fiftyTwoWeekLow:103.38},
     investors:[{name:'Druckenmiller',value:'$7.9M',put:false},{name:'Tepper',value:'$563M',put:false}], note:null },
   { ticker:'QSR', name:'Restaurant Brands', q1Price:73.90, nowPrice:71.71, consensusCount:2,
@@ -1173,97 +1174,143 @@ const COMMON_HOLDINGS = [
 ];
 
 // ═══════════════════════════════════
+// FETCH HELPERS
+// ═══════════════════════════════════
+async function timedFetch(url, ms=9000) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, {signal: ctrl.signal});
+    clearTimeout(tid); return r;
+  } catch(e) { clearTimeout(tid); throw e; }
+}
+
+// Stooq: free, CORS-friendly, no proxy needed
+// Returns {price, name} or null
+async function stooqQuote(ticker) {
+  const syms = [
+    ticker.toLowerCase().replace('/','-') + '.us',  // e.g. aapl.us
+    ticker.toLowerCase().replace('/','-'),            // fallback without exchange
+  ];
+  for (const sym of syms) {
+    const url = `https://stooq.com/q/l/?s=${sym}&f=sd2t2ohlcvn&h&e=json`;
+    try {
+      const r = await timedFetch(url, 8000);
+      if (!r.ok) continue;
+      const d = await r.json();
+      const s = d?.symbols?.[0];
+      if (!s || s.close === 'N/D' || !s.close) continue;
+      const price = parseFloat(s.close);
+      if (!isFinite(price) || price <= 0) continue;
+      return { price, name: s.name };
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
+// Yahoo Finance v8 chart — no crumb needed for basic data
+// Returns meta object {regularMarketPrice, fiftyTwoWeekHigh, fiftyTwoWeekLow, ...} or null
+async function yahooChart(ticker) {
+  const YAHOO_PROXIES = [
+    u => u,                                                                      // direct
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+    u => `https://thingproxy.freeboard.io/fetch/${u}`,
+  ];
+  // Try both Yahoo servers
+  for (const base of ['query1','query2']) {
+    const url = `https://${base}.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d&includePrePost=false`;
+    for (const mkP of YAHOO_PROXIES) {
+      try {
+        const r = await timedFetch(mkP(url), 7000);
+        if (!r.ok) continue;
+        const text = await r.text();
+        if (!text || text.trim().startsWith('<')) continue;
+        const d = JSON.parse(text);
+        const meta = d?.chart?.result?.[0]?.meta;
+        if (!meta?.regularMarketPrice) continue;
+        return meta;
+      } catch(e) { continue; }
+    }
+  }
+  return null;
+}
+
+// Yahoo Finance v7 quote — richer data (analyst, fundamentals) but needs proxy
+async function yahooV7Quote(ticker) {
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`;
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  ];
+  for (const ep of proxies) {
+    try {
+      const r = await timedFetch(ep, 9000);
+      if (!r.ok) continue;
+      const text = await r.text();
+      if (!text || text.startsWith('<')) continue;
+      const d = JSON.parse(text);
+      const q = d?.quoteResponse?.result?.[0];
+      if (q?.regularMarketPrice) return q;
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════
+// UNIFIED PRICE FETCHER
+// Stooq first (CORS-friendly), then Yahoo v8 chart as fallback
+// ═══════════════════════════════════
+async function fetchPrice(ticker) {
+  // 1. Stooq — works for most stocks, direct CORS
+  const sq = await stooqQuote(ticker);
+  if (sq && sq.price && isFinite(sq.price)) {
+    return { price: sq.price, high52: null, low52: null, src: 'Stooq' };
+  }
+  // 2. Yahoo v8 chart — no crumb needed, has 52w data
+  const ym = await yahooChart(ticker);
+  if (ym && ym.regularMarketPrice) {
+    return {
+      price:   ym.regularMarketPrice,
+      high52:  ym.fiftyTwoWeekHigh  ?? null,
+      low52:   ym.fiftyTwoWeekLow   ?? null,
+      src: 'Yahoo'
+    };
+  }
+  return null;
+}
+
+// ═══════════════════════════════════
 // LIVE PRICE FETCH
 // ═══════════════════════════════════
 async function fetchLivePrices() {
-  const btn=document.getElementById('refresh-btn');
-  const icon=document.getElementById('refresh-icon');
-  const lbl=document.getElementById('last-updated-label');
-  btn.disabled=true;
-  icon.textContent='⏳'; icon.classList.add('spin');
-  lbl.textContent=t('refreshing');
+  const btn  = document.getElementById('refresh-btn');
+  const icon = document.getElementById('refresh-icon');
+  const lbl  = document.getElementById('last-updated-label');
+  btn.disabled = true;
+  icon.textContent = '⏳'; icon.classList.add('spin');
+  lbl.textContent  = t('refreshing');
 
-  const symbols=COMMON_HOLDINGS.map(s=>s.ticker).join(',');
-  const yUrl=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&lang=en-US&region=US`;
-  const yUrl2=`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
-
-  // fetchWithTimeout: aborts after ms milliseconds
-  async function fetchWithTimeout(url, opts={}, ms=6000) {
-    const ctrl = new AbortController();
-    const tid = setTimeout(()=>ctrl.abort(), ms);
-    try {
-      const r = await fetch(url, {...opts, signal: ctrl.signal});
-      clearTimeout(tid);
-      return r;
-    } catch(e) { clearTimeout(tid); throw e; }
+  let updated = 0;
+  const total = COMMON_HOLDINGS.length;
+  const sources = new Set();
+  for (const h of COMMON_HOLDINGS) {
+    lbl.textContent = `${t('refreshing')} (${updated}/${total})`;
+    const p = await fetchPrice(h.ticker);
+    if (p) { h.nowPrice = p.price; sources.add(p.src); updated++; }
   }
 
-  // Each entry: [url, isAllOrigins]
-  const endpoints = [
-    [yUrl,  false],
-    [yUrl2, false],
-    [`https://api.allorigins.win/get?url=${encodeURIComponent(yUrl2)}`, true],
-    [`https://corsproxy.io/?${encodeURIComponent(yUrl2)}`, false],
-    [`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yUrl2)}`, false],
-  ];
+  icon.classList.remove('spin'); icon.textContent = '🔄'; btn.disabled = false;
 
-  function extractQuotes(data, isAllOrigins) {
-    if (isAllOrigins) {
-      try { data = JSON.parse(data.contents); } catch(e) { return []; }
-    }
-    return data?.quoteResponse?.result || [];
-  }
-
-  function applyQuotes(quotes) {
-    quotes.forEach(q=>{
-      const h=COMMON_HOLDINGS.find(s=>s.ticker===q.symbol);
-      if(!h) return;
-      if(q.regularMarketPrice) h.nowPrice=q.regularMarketPrice;
-      // Only overwrite analystData if Yahoo returned meaningful fields
-      if(q.recommendationMean || q.targetMeanPrice || q.forwardPE) {
-        h.analystData = {
-          recommendationMean:      q.recommendationMean      ?? h.analystData?.recommendationMean      ?? null,
-          numberOfAnalystOpinions: q.numberOfAnalystOpinions ?? h.analystData?.numberOfAnalystOpinions ?? null,
-          targetMeanPrice:         q.targetMeanPrice         ?? h.analystData?.targetMeanPrice         ?? null,
-          targetHighPrice:         q.targetHighPrice         ?? h.analystData?.targetHighPrice         ?? null,
-          targetLowPrice:          q.targetLowPrice          ?? h.analystData?.targetLowPrice          ?? null,
-          forwardPE:               q.forwardPE               ?? h.analystData?.forwardPE               ?? null,
-          priceToBook:             q.priceToBook             ?? h.analystData?.priceToBook             ?? null,
-          earningsGrowth:          q.earningsGrowth          ?? h.analystData?.earningsGrowth          ?? null,
-          revenueGrowth:           q.revenueGrowth           ?? h.analystData?.revenueGrowth           ?? null,
-          fiftyTwoWeekHigh:        q.fiftyTwoWeekHigh        ?? h.analystData?.fiftyTwoWeekHigh        ?? null,
-          fiftyTwoWeekLow:         q.fiftyTwoWeekLow         ?? h.analystData?.fiftyTwoWeekLow         ?? null,
-        };
-      }
-    });
-  }
-
-  let success=false;
-  for (let i=0; i<endpoints.length; i++) {
-    const [url, isAO] = endpoints[i];
-    lbl.textContent = `${t('refreshing')} (${i+1}/${endpoints.length})`;
-    try {
-      const res = await fetchWithTimeout(url, {headers:{'Accept':'application/json'}}, 7000);
-      if(!res.ok) continue;
-      const raw = await res.json();
-      const quotes = extractQuotes(raw, isAO);
-      if(quotes.length===0) continue;
-      applyQuotes(quotes);
-      success=true;
-      break;
-    } catch(e) { continue; }
-  }
-
-  icon.classList.remove('spin');
-  icon.textContent='🔄';
-  btn.disabled=false;
-  if(success){
-    const now=new Date();
-    lbl.textContent=`${t('refreshOk')} ${now.toLocaleTimeString()}`;
-    lbl.style.color='var(--text3)';
+  if (updated > 0) {
+    const now = new Date();
+    lbl.textContent = `${t('refreshOk')} ${now.toLocaleTimeString()} · ${[...sources].join('+')} · ${updated}/${total}`;
+    lbl.style.color = 'var(--text3)';
   } else {
-    lbl.textContent=t('refreshErr');
-    lbl.style.color='#ef4444';
+    lbl.textContent = t('refreshErr');
+    lbl.style.color = '#ef4444';
   }
   renderPerformance();
   renderFullPicture();
@@ -1433,43 +1480,38 @@ async function doLookup() {
   const icon   = document.getElementById('lookup-icon');
   const btn    = document.getElementById('lookup-btn');
   btn.disabled = true; icon.textContent = '⏳';
-  result.innerHTML = `<div style="color:var(--text3);padding:20px 0">${t('lookupLoading')}</div>`;
+  result.innerHTML = `<div style="color:var(--text3);padding:20px 0">${t('lookupLoading')} (Stooq…)</div>`;
 
-  const yUrl  = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}&lang=en-US&region=US`;
-  const yUrl2 = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`;
-  const endpoints = [
-    [yUrl, false],
-    [yUrl2, false],
-    [`https://api.allorigins.win/get?url=${encodeURIComponent(yUrl2)}`, true],
-    [`https://corsproxy.io/?${encodeURIComponent(yUrl2)}`, false],
-    [`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yUrl2)}`, false],
-  ];
+  // 1. Stooq for reliable price
+  const sq = await stooqQuote(ticker);
 
-  let q = null;
-  for (let i=0; i<endpoints.length; i++) {
-    const [url, isAO] = endpoints[i];
-    try {
-      const ctrl = new AbortController();
-      const tid  = setTimeout(()=>ctrl.abort(), 7000);
-      const res  = await fetch(url, {headers:{'Accept':'application/json'}, signal:ctrl.signal});
-      clearTimeout(tid);
-      if (!res.ok) continue;
-      let data = await res.json();
-      if (isAO) { try { data = JSON.parse(data.contents); } catch(e) { continue; } }
-      const quotes = data?.quoteResponse?.result || [];
-      if (quotes.length > 0) { q = quotes[0]; break; }
-    } catch(e) { continue; }
-  }
+  // 2. Yahoo v8 chart for 52w range (lightweight, no crumb needed)
+  result.innerHTML = `<div style="color:var(--text3);padding:20px 0">${t('lookupLoading')} (Yahoo…)</div>`;
+  const ym = await yahooChart(ticker); // returns meta object
+
+  // 3. Yahoo v7 for analyst/fundamentals (optional, graceful fallback)
+  const yq = await yahooV7Quote(ticker);
 
   btn.disabled = false; icon.textContent = '🔍';
 
-  if (!q) {
+  // Need at least a price to show anything useful
+  if (!sq && !yq && !ym) {
     result.innerHTML = `<div style="color:#ef4444;padding:20px 0;font-size:0.9rem">${t('lookupNotFound')}</div>`;
     return;
   }
 
+  // Merge: Stooq price takes priority; Yahoo chart / v7 fill the rest
+  const nowPrice = sq?.price ?? yq?.regularMarketPrice ?? ym?.regularMarketPrice ?? null;
+  if (!nowPrice) {
+    result.innerHTML = `<div style="color:#ef4444;padding:20px 0;font-size:0.9rem">${t('lookupNotFound')}</div>`;
+    return;
+  }
+
+  // Check if this ticker is in our hardcoded COMMON_HOLDINGS (richer data)
+  const knownH = COMMON_HOLDINGS.find(h => h.ticker === ticker);
+
   // ── Smart Money overlap ──────────────────
-  const qName = (q.longName || q.shortName || ticker).toUpperCase();
+  const qName = (yq?.longName || yq?.shortName || ticker).toUpperCase();
   const smHolders = [];
   INVESTORS.filter(inv=>!inv.noData).forEach(inv=>{
     inv.holdings.forEach(h=>{
@@ -1480,27 +1522,29 @@ async function doLookup() {
     });
   });
 
-  // ── Scores ──────────────────────────────
+  // ── Analyst data: Yahoo live > hardcoded known holding > null ────────────
   const ad = {
-    recommendationMean:      q.recommendationMean      ?? null,
-    numberOfAnalystOpinions: q.numberOfAnalystOpinions  ?? null,
-    targetMeanPrice:         q.targetMeanPrice          ?? null,
-    forwardPE:               q.forwardPE                ?? null,
-    priceToBook:             q.priceToBook              ?? null,
-    earningsGrowth:          q.earningsGrowth           ?? null,
-    revenueGrowth:           q.revenueGrowth            ?? null,
-    fiftyTwoWeekHigh:        q.fiftyTwoWeekHigh         ?? null,
-    fiftyTwoWeekLow:         q.fiftyTwoWeekLow          ?? null,
+    recommendationMean:      yq?.recommendationMean      ?? knownH?.analystData?.recommendationMean      ?? null,
+    numberOfAnalystOpinions: yq?.numberOfAnalystOpinions  ?? knownH?.analystData?.numberOfAnalystOpinions ?? null,
+    targetMeanPrice:         yq?.targetMeanPrice          ?? knownH?.analystData?.targetMeanPrice         ?? null,
+    forwardPE:               yq?.forwardPE                ?? knownH?.analystData?.forwardPE               ?? null,
+    priceToBook:             yq?.priceToBook              ?? knownH?.analystData?.priceToBook             ?? null,
+    earningsGrowth:          yq?.earningsGrowth           ?? knownH?.analystData?.earningsGrowth          ?? null,
+    revenueGrowth:           yq?.revenueGrowth            ?? knownH?.analystData?.revenueGrowth           ?? null,
+    // 52w: Yahoo v8 chart > Yahoo v7 > hardcoded
+    fiftyTwoWeekHigh: yq?.fiftyTwoWeekHigh ?? ym?.fiftyTwoWeekHigh ?? knownH?.analystData?.fiftyTwoWeekHigh ?? null,
+    fiftyTwoWeekLow:  yq?.fiftyTwoWeekLow  ?? ym?.fiftyTwoWeekLow  ?? knownH?.analystData?.fiftyTwoWeekLow  ?? null,
   };
-  const nowPrice   = q.regularMarketPrice || null;
+  const dataSource = yq ? 'Yahoo+Stooq' : ym ? 'Stooq+YChart' : knownH ? 'Stooq+cached' : 'Stooq';
+
   const analystInf = analystLabel(ad.recommendationMean);
-  const techSc     = nowPrice ? fpTechScore(ad, nowPrice) : null;
+  const techSc     = fpTechScore(ad, nowPrice);
   const fundSc     = fpFundScore(ad);
   const upside     = (ad.targetMeanPrice && nowPrice) ? ((ad.targetMeanPrice - nowPrice) / nowPrice * 100) : null;
 
-  // Smart Money score component: based on number of holders + avg concentration
+  // Smart Money score component
   const smCount  = smHolders.length;
-  const maxSM    = 4; // rough max for any stock
+  const maxSM    = 4;
   const smScore  = smCount > 0 ? Math.min((smCount / maxSM) * 70 + 30, 100) : 10;
   const hasPut   = smHolders.some(h=>h.pos==='Put');
   const smAdj    = hasPut ? Math.max(smScore - 15, 0) : smScore;
@@ -1525,10 +1569,11 @@ async function doLookup() {
   const smColor = smAdj>=60?'#22c55e':smAdj>=40?'#eab308':smAdj>=20?'#f97316':'#94a3b8';
 
   // ── Render ──────────────────────────────
-  const chgDay  = q.regularMarketChangePercent ? `${q.regularMarketChangePercent>=0?'▲':'▼'} ${Math.abs(q.regularMarketChangePercent).toFixed(2)}%` : '';
-  const chgDayCl= q.regularMarketChangePercent>=0?'#16a34a':'#ef4444';
-  const mktCap  = q.marketCap ? fmtMoney(q.marketCap) : '—';
-  const vol     = q.regularMarketVolume ? (q.regularMarketVolume/1e6).toFixed(1)+'M' : '—';
+  const chgDay   = yq?.regularMarketChangePercent ? `${yq.regularMarketChangePercent>=0?'▲':'▼'} ${Math.abs(yq.regularMarketChangePercent).toFixed(2)}%` : '';
+  const chgDayCl = (yq?.regularMarketChangePercent ?? 0) >= 0 ? '#16a34a' : '#ef4444';
+  const mktCap   = yq?.marketCap ? fmtMoney(yq.marketCap) : '—';
+  const vol      = yq?.regularMarketVolume ? (yq.regularMarketVolume/1e6).toFixed(1)+'M' : '—';
+  const longName = yq?.longName || yq?.shortName || (sq?.name ? sq.name : ticker);
 
   const smPills = smHolders.length
     ? smHolders.map(h=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
@@ -1554,8 +1599,8 @@ async function doLookup() {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
         <div>
           <div style="font-size:1.6rem;font-weight:900;color:var(--text)">${ticker}</div>
-          <div style="font-size:0.9rem;color:var(--text3);margin-top:2px">${q.longName||q.shortName||''}</div>
-          <div style="font-size:0.75rem;color:var(--text4);margin-top:4px">${q.exchange||''} · ${q.currency||'USD'} · ${mktCap} cap · Vol ${vol}</div>
+          <div style="font-size:0.9rem;color:var(--text3);margin-top:2px">${longName}</div>
+          <div style="font-size:0.75rem;color:var(--text4);margin-top:4px">${yq?.exchange||''} · ${yq?.currency||'USD'} · ${mktCap} cap · Vol ${vol} · <span style="opacity:0.7">${dataSource}</span></div>
         </div>
         <div style="text-align:right">
           <div style="font-size:1.8rem;font-weight:900;color:var(--text)">$${nowPrice?.toFixed(2)||'—'}</div>
