@@ -1211,12 +1211,13 @@ async function stooqQuote(ticker) {
 // Yahoo Finance v8 chart — no crumb needed for basic data
 // Returns meta object {regularMarketPrice, fiftyTwoWeekHigh, fiftyTwoWeekLow, ...} or null
 async function yahooChart(ticker) {
+  // corsproxy.io first — confirmed working from GitHub Pages
+  // allorigins.win times out → moved to last
   const YAHOO_PROXIES = [
-    u => u,                                                                      // direct
-    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
     u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+    u => u,                                                                      // direct (CORS blocked but try)
     u => `https://thingproxy.freeboard.io/fetch/${u}`,
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   ];
   // Try both Yahoo servers
   for (const base of ['query1','query2']) {
@@ -1241,8 +1242,8 @@ async function yahooChart(ticker) {
 async function yahooV7Quote(ticker) {
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}`;
   const proxies = [
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,       // works!
     `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
     `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
   ];
   for (const ep of proxies) {
